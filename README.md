@@ -7,6 +7,8 @@
 [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) 
 [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
 
+## Overview
+
 **scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, and spatial co-variation.
 
 ---
