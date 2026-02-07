@@ -4,7 +4,7 @@
 
 [![R Version](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=bluen)](https://github.com/zhaoqing-wang/scPairs/releases) 
+[![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) 
 [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
 
 **scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, and spatial co-variation.
