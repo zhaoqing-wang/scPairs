@@ -1,0 +1,9 @@
+^\.Rproj\.user$
+^scPairs\.Rproj$
+^\.Rhistory$
+^\.RData$
+^\.gitignore$
+^docs/
+^\.vscode/
+^LICENSE\.md$
+^README\.Rmd$

@@ -1,0 +1,275 @@
+#' Assess the Synergy of a Specific Gene Pair
+#'
+#' @description
+#' Given two genes, `AssessGenePair` performs an in-depth evaluation of their
+#' co-regulatory relationship.  In addition to the standard multi-metric
+#' scoring, it computes:
+#'
+#' * **Per-cluster co-expression** – correlation within each cell cluster,
+#'   revealing whether synergy is global or cluster-specific.
+#' * **Expression distribution overlap** – Jaccard index of the sets of cells
+#'   expressing each gene.
+#' * **Permutation-based significance** – by default 999 permutations are run
+#'   to produce a robust p-value.
+#'
+#' For spatial data, spatial metrics (Lee's L, CLQ) are also computed.
+#'
+#' @param object A Seurat object.
+#' @param gene1 Character; first gene.
+#' @param gene2 Character; second gene.
+#' @param assay Character; assay name.
+#' @param slot Character; data slot.
+#' @param cluster_col Character; cluster column.
+#' @param use_spatial Logical.
+#' @param spatial_k Integer; KNN k.
+#' @param n_perm Integer; number of permutations (default 999).
+#' @param verbose Logical.
+#'
+#' @return A list with class `"scPairs_pair_result"`:
+#' \describe{
+#'   \item{`gene1`, `gene2`}{The query genes.}
+#'   \item{`metrics`}{Named list of all computed metrics.}
+#'   \item{`per_cluster`}{data.frame of per-cluster correlations.}
+#'   \item{`synergy_score`}{Composite score.}
+#'   \item{`p_value`}{Permutation p-value.}
+#'   \item{`confidence`}{Categorical confidence label.}
+#'   \item{`jaccard_index`}{Expression overlap Jaccard index.}
+#'   \item{`has_spatial`}{Logical.}
+#'   \item{`n_cells`}{Integer.}
+#' }
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' result <- AssessGenePair(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+#' print(result)
+#'
+#' # Visualise
+#' PlotPairDimplot(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+#' PlotPairScatter(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+#' }
+#'
+AssessGenePair <- function(object,
+                           gene1,
+                           gene2,
+                           assay       = NULL,
+                           slot        = "data",
+                           cluster_col = NULL,
+                           use_spatial = TRUE,
+                           spatial_k   = 6,
+                           n_perm      = 999,
+                           verbose     = TRUE) {
+
+  .validate_seurat(object)
+  assay <- assay %||% Seurat::DefaultAssay(object)
+
+  # Validate genes
+  all_genes <- rownames(tryCatch(
+    Seurat::GetAssayData(object, assay = assay, layer = slot),
+    error = function(e) Seurat::GetAssayData(object, assay = assay, slot = slot)
+  ))
+  for (g in c(gene1, gene2)) {
+    if (!(g %in% all_genes)) {
+      stop(sprintf("Gene '%s' not found in the expression matrix.", g),
+           call. = FALSE)
+    }
+  }
+  if (gene1 == gene2) {
+    stop("gene1 and gene2 must be different genes.", call. = FALSE)
+  }
+
+  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
+                                 assay = assay, slot = slot)
+  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
+    mat_dense <- as.matrix(mat)
+  } else {
+    mat_dense <- mat
+  }
+
+  x <- mat_dense[gene1, ]
+  y <- mat_dense[gene2, ]
+  n_cells <- length(x)
+
+  .msg("Assessing pair: ", gene1, " -- ", gene2, " (", n_cells, " cells)",
+       verbose = verbose)
+
+  # Cluster info
+  if (!is.null(cluster_col)) {
+    cluster_ids <- as.factor(object@meta.data[[cluster_col]])
+  } else {
+    cluster_ids <- as.factor(Seurat::Idents(object))
+  }
+
+  # --- Global metrics -------------------------------------------------------
+  metrics <- list()
+  metrics$cor_pearson  <- stats::cor(x, y, method = "pearson")
+  metrics$cor_spearman <- stats::cor(x, y, method = "spearman")
+  metrics$cor_biweight <- .bicor(x, y)
+  metrics$mi_score     <- .mutual_info(x, y, n_bins = 5)
+  metrics$ratio_consistency <- .ratio_consistency(x, y, cluster_ids)
+
+  # Correlation test p-values
+  ct_pearson  <- stats::cor.test(x, y, method = "pearson")
+  ct_spearman <- stats::cor.test(x, y, method = "spearman", exact = FALSE)
+  metrics$p_pearson  <- ct_pearson$p.value
+  metrics$p_spearman <- ct_spearman$p.value
+
+  # Expression overlap (Jaccard)
+  expr_a <- x > 0
+  expr_b <- y > 0
+  intersection <- sum(expr_a & expr_b)
+  union_ab     <- sum(expr_a | expr_b)
+  jaccard <- if (union_ab > 0) intersection / union_ab else 0
+  metrics$jaccard_index <- jaccard
+
+  # Co-expression rate
+  metrics$n_coexpressing <- intersection
+  metrics$pct_coexpressing <- intersection / n_cells
+
+  # --- Per-cluster correlations ---------------------------------------------
+  clusters <- levels(cluster_ids)
+  per_cluster <- data.frame(
+    cluster    = clusters,
+    n_cells    = integer(length(clusters)),
+    cor_pearson  = numeric(length(clusters)),
+    cor_spearman = numeric(length(clusters)),
+    pct_coexpr   = numeric(length(clusters)),
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_along(clusters)) {
+    idx <- which(cluster_ids == clusters[i])
+    n_cl <- length(idx)
+    per_cluster$n_cells[i] <- n_cl
+    if (n_cl < 5) {
+      per_cluster$cor_pearson[i]  <- NA
+      per_cluster$cor_spearman[i] <- NA
+      per_cluster$pct_coexpr[i]   <- NA
+    } else {
+      per_cluster$cor_pearson[i]  <- stats::cor(x[idx], y[idx], method = "pearson")
+      per_cluster$cor_spearman[i] <- stats::cor(x[idx], y[idx], method = "spearman")
+      per_cluster$pct_coexpr[i]   <- sum(x[idx] > 0 & y[idx] > 0) / n_cl
+    }
+  }
+
+  # --- Spatial metrics -------------------------------------------------------
+  has_spatial <- FALSE
+  if (use_spatial && .has_spatial(object)) {
+    has_spatial <- TRUE
+    coords <- .get_spatial_coords(object)
+
+    pair_dt <- data.table::data.table(gene1 = gene1, gene2 = gene2)
+    pair_dt <- .compute_spatial_lee(coords, mat, pair_dt, k = spatial_k,
+                                    n_perm = min(n_perm, 199), verbose = verbose)
+    pair_dt <- .compute_spatial_clq(coords, mat, pair_dt, k = spatial_k,
+                                     verbose = verbose)
+
+    metrics$spatial_lee_L <- pair_dt$spatial_lee_L[1]
+    if ("spatial_lee_p" %in% colnames(pair_dt)) {
+      metrics$spatial_lee_p <- pair_dt$spatial_lee_p[1]
+    }
+    metrics$spatial_clq <- pair_dt$spatial_clq[1]
+  }
+
+  # --- Composite score via integration framework ----------------------------
+  pair_dt_score <- data.table::data.table(
+    gene1 = gene1, gene2 = gene2,
+    cor_pearson  = metrics$cor_pearson,
+    cor_spearman = metrics$cor_spearman,
+    cor_biweight = metrics$cor_biweight,
+    mi_score     = metrics$mi_score,
+    ratio_consistency = metrics$ratio_consistency
+  )
+  if (has_spatial) {
+    pair_dt_score[, spatial_lee_L := metrics$spatial_lee_L]
+    pair_dt_score[, spatial_clq   := metrics$spatial_clq]
+  }
+
+  # For a single pair, rank normalisation is trivial; use absolute/raw values
+  # scaled to [0,1] by theoretical max (correlation: abs -> [0,1]; MI: normalise
+  # by log(n_bins); CLQ: cap at reasonable max)
+  synergy <- mean(c(
+    abs(metrics$cor_pearson),
+    abs(metrics$cor_spearman),
+    abs(metrics$cor_biweight),
+    min(metrics$mi_score / log(5), 1),   # normalise MI by log(bins)
+    metrics$ratio_consistency,
+    if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
+    if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
+  ), na.rm = TRUE)
+
+  # --- Permutation p-value ---------------------------------------------------
+  p_value <- NA_real_
+  if (n_perm > 0) {
+    .msg("Permutation test (", n_perm, " permutations) ...", verbose = verbose)
+    null_scores <- vapply(seq_len(n_perm), function(p) {
+      y_perm <- sample(y)
+      s <- mean(c(
+        abs(stats::cor(x, y_perm, method = "pearson")),
+        abs(stats::cor(x, y_perm, method = "spearman")),
+        abs(.bicor(x, y_perm)),
+        min(.mutual_info(x, y_perm, 5) / log(5), 1),
+        .ratio_consistency(x, y_perm, cluster_ids)
+      ), na.rm = TRUE)
+      s
+    }, numeric(1))
+
+    p_value <- (sum(null_scores >= synergy) + 1) / (n_perm + 1)
+  }
+
+  confidence <- if (!is.na(p_value)) {
+    if (p_value < 0.01) "High"
+    else if (p_value < 0.05) "Medium"
+    else if (p_value < 0.1) "Low"
+    else "NS"
+  } else {
+    if (synergy >= 0.6) "High"
+    else if (synergy >= 0.4) "Medium"
+    else if (synergy >= 0.2) "Low"
+    else "NS"
+  }
+
+  # --- Return ---------------------------------------------------------------
+  structure(
+    list(
+      gene1         = gene1,
+      gene2         = gene2,
+      metrics       = metrics,
+      per_cluster   = per_cluster,
+      synergy_score = synergy,
+      p_value       = p_value,
+      confidence    = confidence,
+      jaccard_index = jaccard,
+      has_spatial    = has_spatial,
+      n_cells       = n_cells
+    ),
+    class = "scPairs_pair_result"
+  )
+}
+
+
+#' @export
+#' @method print scPairs_pair_result
+print.scPairs_pair_result <- function(x, ...) {
+  cat("scPairs gene pair assessment\n")
+  cat(sprintf("  Pair           : %s -- %s\n", x$gene1, x$gene2))
+  cat(sprintf("  Cells          : %d\n", x$n_cells))
+  cat(sprintf("  Synergy score  : %.4f\n", x$synergy_score))
+  cat(sprintf("  Confidence     : %s\n", x$confidence))
+  if (!is.na(x$p_value)) {
+    cat(sprintf("  p-value        : %.4g\n", x$p_value))
+  }
+  cat(sprintf("  Jaccard overlap: %.3f\n", x$jaccard_index))
+  cat("\n  Metrics:\n")
+  for (nm in names(x$metrics)) {
+    val <- x$metrics[[nm]]
+    if (is.numeric(val)) {
+      cat(sprintf("    %-20s: %.4f\n", nm, val))
+    }
+  }
+  if (x$has_spatial) cat("  (Spatial metrics included)\n")
+  cat("\n  Per-cluster correlations:\n")
+  print(x$per_cluster, row.names = FALSE)
+  invisible(x)
+}
