@@ -59,13 +59,17 @@
 AssessGenePair <- function(object,
                            gene1,
                            gene2,
-                           assay       = NULL,
-                           slot        = "data",
-                           cluster_col = NULL,
-                           use_spatial = TRUE,
-                           spatial_k   = 6,
-                           n_perm      = 999,
-                           verbose     = TRUE) {
+                           assay                   = NULL,
+                           slot                    = "data",
+                           cluster_col             = NULL,
+                           use_neighbourhood       = TRUE,
+                           neighbourhood_k         = 20,
+                           neighbourhood_reduction = "pca",
+                           smooth_alpha            = 0.3,
+                           use_spatial             = TRUE,
+                           spatial_k               = 6,
+                           n_perm                  = 999,
+                           verbose                 = TRUE) {
 
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
@@ -159,6 +163,38 @@ AssessGenePair <- function(object,
     }
   }
 
+  # --- Neighbourhood metrics (v0.2.0) ----------------------------------------
+  has_neighbourhood <- FALSE
+  if (use_neighbourhood) {
+    W <- tryCatch(
+      .build_knn_graph(object, reduction = neighbourhood_reduction,
+                       k = neighbourhood_k),
+      error = function(e) {
+        .msg("Could not build KNN graph: ", conditionMessage(e),
+             ". Skipping neighbourhood metrics.", verbose = verbose)
+        NULL
+      }
+    )
+
+    if (!is.null(W)) {
+      has_neighbourhood <- TRUE
+      .msg("Computing neighbourhood-aware metrics ...", verbose = verbose)
+
+      # KNN-smoothed correlation
+      smoothed <- .smooth_expression(mat, W, alpha = smooth_alpha)
+      if (inherits(smoothed, "sparseMatrix")) smoothed <- as.matrix(smoothed)
+      sx <- smoothed[gene1, ]
+      sy <- smoothed[gene2, ]
+      metrics$smoothed_cor <- stats::cor(sx, sy, method = "pearson")
+
+      # Neighbourhood co-expression score
+      metrics$neighbourhood_score <- .neighbourhood_coexpr(x, y, W)
+
+      # Cluster-level correlation
+      metrics$cluster_cor <- .cluster_cor(x, y, cluster_ids)
+    }
+  }
+
   # --- Spatial metrics -------------------------------------------------------
   has_spatial <- FALSE
   if (use_spatial && .has_spatial(object)) {
@@ -185,6 +221,9 @@ AssessGenePair <- function(object,
     abs(metrics$cor_biweight),
     min(metrics$mi_score / log(5), 1),
     metrics$ratio_consistency,
+    if (has_neighbourhood) abs(metrics$smoothed_cor) else NULL,
+    if (has_neighbourhood) min(pmax(metrics$neighbourhood_score, 0) / 2, 1) else NULL,
+    if (has_neighbourhood && !is.na(metrics$cluster_cor)) abs(metrics$cluster_cor) else NULL,
     if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
     if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
   ), na.rm = TRUE)
@@ -209,17 +248,32 @@ AssessGenePair <- function(object,
     perm_bicor <- numeric(n_perm)
     perm_mi <- numeric(n_perm)
     perm_rc <- numeric(n_perm)
+    perm_smoothed <- numeric(n_perm)
+    perm_ncs <- numeric(n_perm)
+    perm_clcor <- numeric(n_perm)
 
     for (p in seq_len(n_perm)) {
       yp <- perm_y_mat[, p]
       perm_bicor[p] <- abs(.bicor(x, yp))
       perm_mi[p] <- min(.mutual_info(x, yp, 5) / log(5), 1)
       perm_rc[p] <- .ratio_consistency(x, yp, cluster_ids)
+      if (has_neighbourhood) {
+        perm_smoothed[p] <- abs(.smoothed_cor(
+          rbind(x), rbind(yp), W, alpha = smooth_alpha))
+        perm_ncs[p] <- min(pmax(.neighbourhood_coexpr(x, yp, W), 0) / 2, 1)
+        perm_clcor[p] <- abs(.cluster_cor(x, yp, cluster_ids))
+      }
     }
 
     # Null composite scores (vectorised)
-    null_scores <- (perm_pearson + perm_spearman + perm_bicor +
-                      perm_mi + perm_rc) / 5
+    n_metrics <- 5L
+    null_scores <- perm_pearson + perm_spearman + perm_bicor +
+                      perm_mi + perm_rc
+    if (has_neighbourhood) {
+      null_scores <- null_scores + perm_smoothed + perm_ncs + perm_clcor
+      n_metrics <- n_metrics + 3L
+    }
+    null_scores <- null_scores / n_metrics
 
     p_value <- (sum(null_scores >= synergy) + 1) / (n_perm + 1)
   }

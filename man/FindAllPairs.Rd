@@ -14,6 +14,10 @@ FindAllPairs(
   cor_method = c("pearson", "spearman", "biweight"),
   n_mi_bins = 5,
   min_cells_expressed = 10,
+  use_neighbourhood = TRUE,
+  neighbourhood_k = 20,
+  neighbourhood_reduction = "pca",
+  smooth_alpha = 0.3,
   use_spatial = TRUE,
   spatial_k = 6,
   n_perm = 0,
@@ -45,7 +49,23 @@ Default \code{c("pearson", "spearman", "biweight")}.}
 \item{n_mi_bins}{Integer; bins for mutual information.  0 = skip MI.}
 
 \item{min_cells_expressed}{Integer; minimum co-expressing cells to keep a
-pair. Default 10.}
+pair. Default 10.  Set to 0 to retain all pairs (recommended when
+neighbourhood metrics are enabled).}
+
+\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
+(KNN-smoothed correlation, neighbourhood co-expression score, and
+cluster-level pseudo-bulk correlation).  Default TRUE.  These metrics
+are critical for detecting synergistic pairs where cell-level
+co-expression is absent due to sparsity.}
+
+\item{neighbourhood_k}{Integer; number of nearest neighbours for the
+neighbourhood graph.  Default 20.}
+
+\item{neighbourhood_reduction}{Character; reduction to use for building the
+KNN graph.  Default \code{"pca"}.}
+
+\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
+0 = pure neighbour average, 1 = no smoothing.  Default 0.3.}
 
 \item{use_spatial}{Logical; compute spatial metrics when available.
 Default TRUE.}

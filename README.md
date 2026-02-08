@@ -9,7 +9,7 @@
 
 ## Overview
 
-**scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, and spatial co-variation.
+**scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, neighbourhood-level co-expression, and spatial co-variation.
 
 ---
 
@@ -23,6 +23,9 @@ Single-marker analysis misses **cooperative regulatory programs** where two gene
 | **Robust co-expression** | Biweight midcorrelation | Outlier-resistant association<sup>1</sup> |
 | **Non-linear dependence** | Mutual information | Arbitrary statistical relationships |
 | **Stoichiometric consistency** | Ratio consistency | Stable expression ratios across clusters |
+| **Neighbourhood co-expression** | KNN-smoothed correlation | Co-expression in adjacent cells |
+| **Neighbourhood enrichment** | Neighbourhood score | Complementary expression in neighbours |
+| **Population-level** | Cluster pseudo-bulk correlation | Co-regulation across cell populations |
 | **Spatial co-variation** | Lee's L statistic<sup>2</sup> | Bivariate spatial autocorrelation |
 | **Spatial co-location** | Co-location quotient (CLQ)<sup>3</sup> | Spatial proximity enrichment |
 
@@ -114,12 +117,15 @@ assessment <- AssessGenePair(sce, gene1 = "CD8A", gene2 = "CD8B", n_perm = 999)
 print(assessment)
 
 # Multiple visualization options
-PlotPairDimplot(sce, gene1 = "CD8A", gene2 = "CD8B")   # UMAP co-expression
-PlotPairScatter(sce, gene1 = "CD8A", gene2 = "CD8B")   # Gene-gene scatter
-PlotPairViolin(sce, gene1 = "CD8A", gene2 = "CD8B")    # Cluster distributions
+PlotPairDimplot(sce, gene1 = "CD8A", gene2 = "CD8B")     # UMAP co-expression
+PlotPairSmoothed(sce, gene1 = "CD8A", gene2 = "CD8B")    # Raw + KNN-smoothed (6-panel)
+PlotPairSummary(sce, gene1 = "CD8A", gene2 = "CD8B",     # Comprehensive figure
+                result = assessment)
+PlotPairScatter(sce, gene1 = "CD8A", gene2 = "CD8B")     # Gene-gene scatter
+PlotPairViolin(sce, gene1 = "CD8A", gene2 = "CD8B")      # Cluster distributions
 ```
 
-**Output:** Comprehensive metrics, per-cluster correlations, synergy score, p-value, and confidence level.
+**Output:** Comprehensive metrics (including neighbourhood-aware metrics), per-cluster correlations, synergy score, p-value, and confidence level.
 
 ### Spatial Transcriptomics
 
@@ -148,6 +154,8 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 | **`PlotPairNetwork()`** | Gene interaction network (ggraph) |
 | **`PlotPairHeatmap()`** | Synergy score heatmap (pheatmap-style) |
 | **`PlotPairDimplot()`** | UMAP/tSNE co-expression overlay (3-panel) |
+| **`PlotPairSmoothed()`** | Raw + KNN-smoothed co-expression (6-panel) |
+| **`PlotPairSummary()`** | Comprehensive multi-panel publication figure |
 | **`PlotPairSpatial()`** | Spatial tissue co-expression map (3-panel) |
 | **`PlotPairViolin()`** | Cluster-level expression violin plots |
 | **`PlotPairScatter()`** | Cell-level gene-gene scatter (with optional marginals) |
@@ -158,18 +166,23 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 ### Multi-Evidence Integration
 
-Each gene pair is evaluated using up to 7 metrics:
+Each gene pair is evaluated using up to 10 metrics:
 
-**Co-Expression Metrics:**
+**Cell-Level Co-Expression Metrics:**
 1. **Pearson correlation** – Linear association
 2. **Spearman correlation** – Rank-based, monotonic association
 3. **Biweight midcorrelation** – Robust to scRNA-seq dropout noise
 4. **Mutual information** – Non-linear statistical dependence
 5. **Ratio consistency** – Expression ratio stability across cell clusters
 
+**Neighbourhood-Aware Metrics** (v0.2.0):
+6. **KNN-smoothed correlation** – Pearson correlation on KNN-smoothed expression; captures co-expression in adjacent cells
+7. **Neighbourhood co-expression score** – For cells expressing gene A, average expression of gene B in neighbours
+8. **Cluster pseudo-bulk correlation** – Pearson correlation of cluster-level mean expression
+
 **Spatial Metrics** (when applicable):
-6. **Lee's L statistic** – Bivariate spatial autocorrelation
-7. **Co-location quotient (CLQ)** – Spatial proximity enrichment
+9. **Lee's L statistic** – Bivariate spatial autocorrelation
+10. **Co-location quotient (CLQ)** – Spatial proximity enrichment
 
 ### Score Integration Formula
 
@@ -188,6 +201,9 @@ Each metric is rank-normalised to [0, 1] within the dataset, then combined via w
 | Biweight midcorrelation | **1.5** | Resistant to dropout artifacts |
 | Mutual information | 1.0 | Captures non-linear patterns |
 | Ratio consistency | **1.2** | Biological plausibility filter |
+| KNN-smoothed correlation | **1.5** | Neighbourhood-level co-expression |
+| Neighbourhood score | **1.5** | Complementary expression in neighbours |
+| Cluster pseudo-bulk cor | **1.2** | Population-level co-regulation |
 | Lee's L (spatial) | **1.5** | Strong spatial validation |
 | CLQ (spatial) | **1.2** | Spatial co-location evidence |
 
@@ -214,7 +230,9 @@ All result objects are S3 classes with custom `print()` methods for clear summar
 ```r
 result$pairs           # data.table with columns:
                        #   gene1, gene2, cor_pearson, cor_spearman, cor_biweight,
-                       #   mi_score, ratio_consistency, spatial_lee_L, spatial_clq,
+                       #   mi_score, ratio_consistency,
+                       #   smoothed_cor, neighbourhood_score, cluster_cor,
+                       #   spatial_lee_L, spatial_clq,
                        #   synergy_score, rank, p_value, p_adj, confidence
 result$parameters      # Analysis parameters for reproducibility
 result$n_genes         # Number of genes analyzed
@@ -252,7 +270,7 @@ result$n_cells         # Number of cells
 
 ## Performance Notes
 
-**v0.1.1** introduces major vectorisation improvements across all metric computations:
+**v0.1.1+** includes major vectorisation improvements across all metric computations:
 
 - **Co-expression filter:** Uses `tcrossprod()` on binary expression matrices — handles millions of pairs in seconds.
 - **Biweight midcorrelation:** Full correlation matrix computed via vectorised Tukey biweight kernel and `tcrossprod()` — no per-pair R-level loops.
@@ -277,7 +295,7 @@ If you use scPairs in published research, please cite:
 
 ```
 Wang Z (2026). scPairs: Go Beyond Marker Genes – Discover Synergistic Gene
-Pairs in scRNA-seq and Spatial Maps. R package version 0.1.1.
+Pairs in scRNA-seq and Spatial Maps. R package version 0.2.0.
 https://github.com/zhaoqing-wang/scPairs
 ```
 
@@ -287,7 +305,7 @@ BibTeX:
   title = {scPairs: Go Beyond Marker Genes - Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.1.1},
+  note = {R package version 0.2.0},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```

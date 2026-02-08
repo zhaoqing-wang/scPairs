@@ -1,3 +1,41 @@
+# scPairs 0.1.2 (2026-02-08)
+
+## Neighbourhood-Aware Co-Expression Metrics
+
+This release introduces neighbourhood-level analysis to detect gene pairs that co-express in adjacent cells even when they do not co-express within the same cell. This is critical for sparse scRNA-seq data where dropout events and sampling limitations mask true co-regulatory relationships.
+
+### New Metrics
+
+* **KNN-smoothed correlation (`smoothed_cor`):** Expression values are smoothed over each cell's k-nearest neighbours (in PCA space), then Pearson correlation is computed on the smoothed vectors. Smoothing formula: `x_smooth = alpha * x + (1 - alpha) * W %*% x` where W is the row-normalised KNN adjacency matrix. Default: k=20, alpha=0.3. Weight: **1.5**.
+
+* **Neighbourhood co-expression score (`neighbourhood_score`):** For each cell expressing gene A, measures the average expression of gene B in that cell's neighbourhood (and vice versa). Captures complementary expression patterns in adjacent cells. Weight: **1.5**.
+
+* **Cluster-level pseudo-bulk correlation (`cluster_cor`):** Aggregates expression to cluster-level means and computes Pearson correlation across clusters. Robust to cell-level sparsity and sensitive to population-level co-regulation patterns. Weight: **1.2**.
+
+### New Visualisation Functions
+
+* **`PlotPairSmoothed()`** — Six-panel UMAP: top row shows raw expression (gene1, gene2, product); bottom row shows KNN-smoothed expression. Annotated with raw and smoothed Pearson r.
+
+* **`PlotPairSummary()`** — Comprehensive publication-ready figure combining: (1) 6-panel raw + smoothed UMAP, (2) per-cluster bar chart, and (3) metric comparison chart showing cell-level vs. neighbourhood metrics.
+
+### Updated Functions
+
+* **`AssessGenePair()`** gains parameters `use_neighbourhood`, `neighbourhood_k`, `neighbourhood_reduction`, and `smooth_alpha`. The metrics list now includes `smoothed_cor`, `neighbourhood_score`, and `cluster_cor`.
+
+* **`FindAllPairs()`** and **`FindGenePairs()`** gain parameter `use_neighbourhood` (default TRUE). When enabled, neighbourhood metrics contribute to the composite synergy score with configurable weights.
+
+* **`score_integration.R`** — Updated default weight vector to include neighbourhood metrics.
+
+### New Internal Functions
+
+* `.build_knn_graph()` — Constructs k-nearest neighbour graph from a Seurat reduction (uses RANN if available, base R fallback).
+* `.smooth_expression()` — Applies KNN-based expression smoothing with configurable self-weight alpha.
+* `.smoothed_cor()` / `.smoothed_cor_batch()` — Computes Pearson correlation on smoothed expression.
+* `.neighbourhood_coexpr()` / `.neighbourhood_coexpr_batch()` — Neighbourhood co-expression score for single pairs and batch.
+* `.cluster_cor()` — Cluster-level pseudo-bulk correlation.
+
+---
+
 # scPairs 0.1.1 (2026-02-08)
 
 ## Performance Optimizations
@@ -214,7 +252,7 @@ devtools::install_github("zhaoqing-wang/scPairs")
 
 ## Citation
 
-Wang Z (2026). scPairs: Go Beyond Marker Genes -- Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps. R package version 0.1.1. https://github.com/zhaoqing-wang/scPairs
+Wang Z (2026). scPairs: Go Beyond Marker Genes -- Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps. R package version 0.2.0. https://github.com/zhaoqing-wang/scPairs
 
 ---
 

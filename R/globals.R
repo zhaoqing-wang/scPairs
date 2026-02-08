@@ -13,5 +13,8 @@ utils::globalVariables(
     ".", ".N", ".SD", "V1", "value", "variable",
     "node_size", "edge_width", "edge_color",
     "pair_label", "score_type", "score_value",
-    "dim1", "dim2", "x", "y", "gene", "spatial_lee_p")
+    "dim1", "dim2", "x", "y", "gene", "spatial_lee_p",
+    "smoothed_cor", "neighbourhood_score", "cluster_cor",
+    "smoothed_expr1", "smoothed_expr2", "expression", "expr_status",
+    "metric", "metric_value")
 )

@@ -40,7 +40,19 @@
 #'     Default `c("pearson", "spearman", "biweight")`.
 #' @param n_mi_bins Integer; bins for mutual information.  0 = skip MI.
 #' @param min_cells_expressed Integer; minimum co-expressing cells to keep a
-#'     pair. Default 10.
+#'     pair. Default 10.  Set to 0 to retain all pairs (recommended when
+#'     neighbourhood metrics are enabled).
+#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
+#'     (KNN-smoothed correlation, neighbourhood co-expression score, and
+#'     cluster-level pseudo-bulk correlation).  Default TRUE.  These metrics
+#'     are critical for detecting synergistic pairs where cell-level
+#'     co-expression is absent due to sparsity.
+#' @param neighbourhood_k Integer; number of nearest neighbours for the
+#'     neighbourhood graph.  Default 20.
+#' @param neighbourhood_reduction Character; reduction to use for building the
+#'     KNN graph.  Default `"pca"`.
+#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
+#'     0 = pure neighbour average, 1 = no smoothing.  Default 0.3.
 #' @param use_spatial Logical; compute spatial metrics when available.
 #'     Default TRUE.
 #' @param spatial_k Integer; KNN neighbourhood size for spatial analyses.
@@ -78,20 +90,24 @@
 #' }
 #'
 FindAllPairs <- function(object,
-                         features           = NULL,
-                         n_top_genes        = 2000,
-                         assay              = NULL,
-                         slot               = "data",
-                         cluster_col        = NULL,
-                         cor_method         = c("pearson", "spearman", "biweight"),
-                         n_mi_bins          = 5,
-                         min_cells_expressed = 10,
-                         use_spatial        = TRUE,
-                         spatial_k          = 6,
-                         n_perm             = 0,
-                         weights            = NULL,
-                         top_n              = NULL,
-                         verbose            = TRUE) {
+                         features              = NULL,
+                         n_top_genes           = 2000,
+                         assay                 = NULL,
+                         slot                  = "data",
+                         cluster_col           = NULL,
+                         cor_method            = c("pearson", "spearman", "biweight"),
+                         n_mi_bins             = 5,
+                         min_cells_expressed   = 10,
+                         use_neighbourhood     = TRUE,
+                         neighbourhood_k       = 20,
+                         neighbourhood_reduction = "pca",
+                         smooth_alpha          = 0.3,
+                         use_spatial           = TRUE,
+                         spatial_k             = 6,
+                         n_perm                = 0,
+                         weights               = NULL,
+                         top_n                 = NULL,
+                         verbose               = TRUE) {
 
   # --- Input validation -----------------------------------------------------
   .validate_seurat(object)
@@ -130,6 +146,36 @@ FindAllPairs <- function(object,
     warning("No gene pairs passed the minimum co-expression filter.",
             call. = FALSE)
     return(.build_result(pair_dt, features, object, FALSE, list()))
+  }
+
+  # --- Neighbourhood metrics (v0.2.0) --------------------------------------
+  has_neighbourhood <- FALSE
+  if (use_neighbourhood) {
+    W <- tryCatch(
+      .build_knn_graph(object, reduction = neighbourhood_reduction,
+                       k = neighbourhood_k),
+      error = function(e) {
+        .msg("Could not build KNN graph: ", conditionMessage(e),
+             ". Skipping neighbourhood metrics.", verbose = verbose)
+        NULL
+      }
+    )
+
+    if (!is.null(W)) {
+      has_neighbourhood <- TRUE
+      .msg("Computing neighbourhood-aware metrics ...", verbose = verbose)
+
+      .msg("  KNN-smoothed correlation ...", verbose = verbose)
+      pair_dt[, smoothed_cor := .smoothed_cor_batch(
+        mat, pair_dt, W, alpha = smooth_alpha, method = "pearson")]
+
+      .msg("  Neighbourhood co-expression score ...", verbose = verbose)
+      pair_dt[, neighbourhood_score := .neighbourhood_coexpr_batch(
+        mat, pair_dt, W)]
+
+      .msg("  Cluster-level correlation ...", verbose = verbose)
+      pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
+    }
   }
 
   # --- Spatial metrics (if available) ---------------------------------------
@@ -180,6 +226,9 @@ FindAllPairs <- function(object,
   .build_result(pair_dt, features, object, has_spatial,
                 list(cor_method = cor_method, n_mi_bins = n_mi_bins,
                      min_cells_expressed = min_cells_expressed,
+                     use_neighbourhood = use_neighbourhood,
+                     neighbourhood_k = neighbourhood_k,
+                     smooth_alpha = smooth_alpha,
                      spatial_k = spatial_k, n_perm = n_perm,
                      weights = weights, top_n = top_n))
 }
