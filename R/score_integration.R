@@ -48,20 +48,8 @@
 
   if (nrow(pair_dt) == 0) return(pair_dt)
 
-  # Default weights
-  default_w <- c(
-    cor_pearson             = 1.0,
-    cor_spearman            = 1.0,
-    cor_biweight            = 1.5,
-    mi_score                = 1.0,
-    ratio_consistency       = 1.2,
-    smoothed_cor            = 1.5,
-    neighbourhood_score     = 1.5,
-    cluster_cor             = 1.2,
-    cross_celltype_score    = 1.5,
-    spatial_lee_L           = 1.5,
-    spatial_clq             = 1.2
-  )
+  # Default weights from centralized schema
+  default_w <- DEFAULT_WEIGHTS
 
   if (is.null(weights)) {
     weights <- default_w
@@ -90,11 +78,8 @@
        paste(metric_cols, collapse = ", "), verbose = verbose)
 
   # --- Rank-normalise each metric to [0, 1] --------------------------------
-  abs_metrics <- c("cor_pearson", "cor_spearman", "cor_biweight",
-                   "smoothed_cor", "cluster_cor", "spatial_lee_L")
-  raw_metrics <- c("mi_score", "ratio_consistency",
-                   "neighbourhood_score", "cross_celltype_score",
-                   "spatial_clq")
+  abs_metrics <- ABS_METRICS
+  raw_metrics <- RAW_METRICS
 
   rank_norm <- function(x) {
     r <- rank(x, na.last = "keep", ties.method = "average")

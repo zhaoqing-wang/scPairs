@@ -35,23 +35,14 @@ PlotPairDimplot <- function(object,
                             alpha     = 0.8,
                             title     = NULL) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot,
+                                      reduction = reduction)
+  assay <- validated$assay
 
-  # Get embeddings
-  embed <- tryCatch(
-    Seurat::Embeddings(object, reduction = reduction),
-    error = function(e) {
-      stop(sprintf("Reduction '%s' not found in the Seurat object.", reduction),
-           call. = FALSE)
-    }
-  )
-
-  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
-                                 assay = assay, slot = slot)
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
+  embed <- Seurat::Embeddings(object, reduction = reduction)
+  mat <- .prepare_expression_data(object, gene1, gene2,
+                                   assay = assay, slot = slot)
 
   common <- intersect(rownames(embed), colnames(mat))
   embed <- embed[common, ]
@@ -148,14 +139,11 @@ PlotPairViolin <- function(object,
                            pt_size  = 0,
                            title    = NULL) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
-
-  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
-                                 assay = assay, slot = slot)
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot)
+  assay <- validated$assay
+  mat <- .prepare_expression_data(object, gene1, gene2,
+                                   assay = assay, slot = slot)
 
   if (!is.null(group_by)) {
     groups <- object@meta.data[[group_by]]
@@ -230,14 +218,11 @@ PlotPairScatter <- function(object,
                             add_density = FALSE,
                             title       = NULL) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
-
-  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
-                                 assay = assay, slot = slot)
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot)
+  assay <- validated$assay
+  mat <- .prepare_expression_data(object, gene1, gene2,
+                                   assay = assay, slot = slot)
 
   if (!is.null(group_by)) {
     groups <- as.factor(object@meta.data[[group_by]])

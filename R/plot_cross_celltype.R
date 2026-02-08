@@ -26,6 +26,9 @@
 #'     Default \code{"pca"}.
 #' @param min_cross_pairs Integer; minimum cross-type pairs per tile.
 #'     Tiles with fewer pairs are greyed out.  Default 30.
+#' @param min_pct_expressed Numeric; minimum percentage of cells (0-1) in a
+#'     cell type that must express a gene. Default 0.01 (1%). Prevents
+#'     spurious correlations with very sparse genes.
 #' @param show_n Logical; annotate each tile with the number of cross-type
 #'     neighbour pairs.  Default TRUE.
 #' @param show_reverse Logical; if TRUE (default), show a second panel for
@@ -57,13 +60,17 @@ PlotPairCrossType <- function(object,
                               neighbourhood_k         = 20,
                               neighbourhood_reduction = "pca",
                               min_cross_pairs         = 30,
+                              min_pct_expressed       = 0.01,
                               show_n                  = TRUE,
                               show_reverse            = TRUE,
                               diverging               = TRUE,
                               title                   = NULL) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot)
+  assay <- validated$assay
+
+  .validate_percentage(min_pct_expressed, "min_pct_expressed")
 
   # ------------------------------------------------------------------
   # Obtain cross-cell-type detail
@@ -104,7 +111,8 @@ PlotPairCrossType <- function(object,
       x = mat[gene1, ], y = mat[gene2, ],
       cluster_ids = cluster_ids,
       embed = embed[, dims_use, drop = FALSE],
-      min_bins = min_cross_pairs %/% 3
+      min_bins = min_cross_pairs %/% 3,
+      min_pct_expressed = min_pct_expressed
     )
     detail <- cross_res$per_celltype_pair
     global_r_ab <- cross_res$r_ab
@@ -114,11 +122,32 @@ PlotPairCrossType <- function(object,
 
   # Validation
   if (is.null(detail) || nrow(detail) == 0) {
-    message("No cross-cell-type pairs with sufficient data found. ",
-            "Try reducing min_cross_pairs or check that multiple cell types ",
-            "are present.")
+    # Provide helpful diagnostic message
+    mat_check <- .get_expression_matrix(object, features = c(gene1, gene2),
+                                         assay = assay, slot = slot)
+    if (inherits(mat_check, "dgCMatrix") || inherits(mat_check, "dgRMatrix")) {
+      mat_check <- as.matrix(mat_check)
+    }
+    
+    pct1 <- mean(mat_check[gene1, ] > 0) * 100
+    pct2 <- mean(mat_check[gene2, ] > 0) * 100
+    
+    msg <- sprintf(
+      "No cross-cell-type pairs with sufficient data found.\n",
+      "Gene expression: %s = %.1f%%, %s = %.1f%%\n",
+      "Possible reasons:\n",
+      "  - One or both genes are too sparse (< %.1f%% in cell types)\n",
+      "  - Insufficient bins with both cell types (min_cross_pairs = %d)\n",
+      "  - Only one cell type present\n",
+      "Try: reducing min_cross_pairs, min_pct_expressed, or check gene expression.",
+      gene1, pct1, gene2, pct2, min_pct_expressed * 100, min_cross_pairs
+    )
+    message(msg)
+    
     return(ggplot2::ggplot() + ggplot2::theme_void() +
-             ggplot2::ggtitle("No cross-cell-type pairs"))
+             ggplot2::ggtitle("No cross-cell-type pairs",
+                              subtitle = sprintf("%s: %.1f%% cells, %s: %.1f%% cells",
+                                                 gene1, pct1, gene2, pct2)))
   }
 
   # ------------------------------------------------------------------

@@ -11,7 +11,8 @@
   embed,
   n_bins = 50,
   min_cells_per_bin = 5,
-  min_bins = 8
+  min_bins = 8,
+  min_pct_expressed = 0.01
 )
 }
 \arguments{
@@ -29,6 +30,10 @@
 Default 5.}
 
 \item{min_bins}{Integer; minimum valid bins per type pair.  Default 8.}
+
+\item{min_pct_expressed}{Numeric; minimum percentage of cells (0-1) in a
+cell type that must express a gene for that type to be considered.
+Default 0.01 (1\%). Prevents spurious correlations with very sparse genes.}
 }
 \value{
 A list with components:

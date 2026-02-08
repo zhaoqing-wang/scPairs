@@ -82,17 +82,17 @@ AssessGenePair <- function(object,
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
 
-  # Validate genes
-  all_genes <- rownames(tryCatch(
-    Seurat::GetAssayData(object, assay = assay, layer = slot),
-    error = function(e) Seurat::GetAssayData(object, assay = assay, slot = slot)
-  ))
-  for (g in c(gene1, gene2)) {
-    if (!(g %in% all_genes)) {
-      stop(sprintf("Gene '%s' not found in the expression matrix.", g),
-           call. = FALSE)
-    }
+  n_cells_total <- ncol(object)
+  .validate_percentage(smooth_alpha, "smooth_alpha")
+  if (use_neighbourhood) {
+    .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
   }
+  if (n_perm > 0) {
+    .validate_n_perm(n_perm)
+  }
+
+  # Validate genes
+  .validate_features(c(gene1, gene2), object, assay)
   if (gene1 == gene2) {
     stop("gene1 and gene2 must be different genes.", call. = FALSE)
   }

@@ -13,6 +13,7 @@
 Named numeric vector of variances.
 }
 \description{
-Fast row-wise variance for sparse matrices
+Uses \code{Matrix::rowMeans} and \code{Matrix::rowSums} directly on sparse
+matrices to avoid unnecessary densification.
 }
 \keyword{internal}

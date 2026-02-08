@@ -84,15 +84,19 @@ FindGenePairs <- function(object,
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
 
-  # Validate query gene exists
-  all_genes <- rownames(tryCatch(
-    Seurat::GetAssayData(object, assay = assay, layer = slot),
-    error = function(e) Seurat::GetAssayData(object, assay = assay, slot = slot)
-  ))
-  if (!(gene %in% all_genes)) {
-    stop(sprintf("Query gene '%s' not found in the expression matrix.", gene),
-         call. = FALSE)
+  n_cells_total <- ncol(object)
+  .validate_cor_method(cor_method)
+  .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
+  .validate_percentage(smooth_alpha, "smooth_alpha")
+  if (use_neighbourhood) {
+    .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
   }
+  if (n_perm > 0) {
+    .validate_n_perm(n_perm)
+  }
+
+  # Validate query gene exists
+  .validate_features(gene, object, assay)
 
   # Select candidates
   candidates <- .select_features(object, candidates, n_top = n_top_genes, assay = assay)

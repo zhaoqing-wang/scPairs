@@ -188,18 +188,23 @@
 
 #' Fast row-wise variance for sparse matrices
 #'
+#' Uses \code{Matrix::rowMeans} and \code{Matrix::rowSums} directly on sparse
+#' matrices to avoid unnecessary densification.
+#'
 #' @param x Sparse or dense matrix (genes x cells).
 #' @return Named numeric vector of variances.
 #' @keywords internal
 .row_vars <- function(x) {
-  rm <- Matrix::rowMeans(x)
   n <- ncol(x)
-  # E[X^2] - (E[X])^2, with Bessel correction
-  if (inherits(x, "dgCMatrix") || inherits(x, "dgRMatrix")) {
-    rsq <- Matrix::rowSums(x^2)
-  } else {
-    rsq <- rowSums(x^2)
+  if (n < 2) {
+    vars <- rep(0, nrow(x))
+    names(vars) <- rownames(x)
+    return(vars)
   }
+  rm <- Matrix::rowMeans(x)
+  # E[X^2] - (E[X])^2, with Bessel correction
+  # Keep sparse for x^2 and rowSums -- Matrix handles this natively
+  rsq <- Matrix::rowSums(x^2)
   vars <- (rsq - n * rm^2) / (n - 1)
   names(vars) <- rownames(x)
   vars

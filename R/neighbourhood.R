@@ -111,12 +111,14 @@ NULL
   mat <- mat[, common, drop = FALSE]
   W   <- W[common, common, drop = FALSE]
 
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
-
+  # Keep sparse as long as possible; W is sparse, mat may be sparse or dense
   # Neighbour average: mat %*% t(W) gives genes x cells
   neigh_avg <- mat %*% Matrix::t(W)
+
+  # Convert to dense only at the final combination step
+  if (inherits(mat, "sparseMatrix")) {
+    mat <- as.matrix(mat)
+  }
   if (inherits(neigh_avg, "sparseMatrix")) {
     neigh_avg <- as.matrix(neigh_avg)
   }
@@ -127,8 +129,69 @@ NULL
 
 
 # ===========================================================================
-#  3. KNN-smoothed correlation (batch)
+#  3. KNN-smoothed correlation (unified + batch + single)
 # ===========================================================================
+
+#' Compute KNN-smoothed correlation (unified interface)
+#'
+#' Dispatches to batch mode when \code{pair_dt} is provided (matrix in
+#' \code{x}), or single-pair mode when \code{x} and \code{y} are vectors.
+#'
+#' @param x Expression matrix (genes x cells) for batch mode, or a
+#'     1-row matrix / numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or a 1-row matrix / numeric vector.
+#' @param pair_dt data.table with gene1, gene2 columns (batch only).
+#' @param W KNN weight matrix.
+#' @param alpha Self-weight for smoothing.
+#' @param method Correlation method.
+#' @return Numeric vector (batch) or scalar (single-pair).
+#' @keywords internal
+.compute_smoothed_cor <- function(x, y = NULL, pair_dt = NULL, W,
+                                  alpha = 0.3, method = "pearson") {
+  if (is.null(y) && !is.null(pair_dt)) {
+    return(.smoothed_cor_batch(x, pair_dt, W, alpha = alpha, method = method))
+  }
+  .smoothed_cor(x, y, W, alpha = alpha)
+}
+
+
+#' Compute neighbourhood co-expression score (unified interface)
+#'
+#' @param x Expression matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector.
+#' @param pair_dt data.table with gene1, gene2 (batch only).
+#' @param W KNN weight matrix.
+#' @param k Neighbourhood size (single-pair only).
+#' @param expr_threshold Expression threshold.
+#' @return Numeric vector (batch) or scalar (single-pair).
+#' @keywords internal
+.compute_neighbourhood_score <- function(x, y = NULL, pair_dt = NULL, W,
+                                         k = NULL, expr_threshold = 0) {
+  if (is.null(y) && !is.null(pair_dt)) {
+    return(.neighbourhood_coexpr_batch(x, pair_dt, W,
+                                       expr_threshold = expr_threshold))
+  }
+  .neighbourhood_coexpr(x, y, W, k = k)
+}
+
+
+#' Compute cluster-level pseudo-bulk correlation (unified interface)
+#'
+#' @param x Expression matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector.
+#' @param cluster_ids Factor of cluster assignments.
+#' @param pair_dt data.table with gene1, gene2 (batch only).
+#' @return Numeric vector (batch) or scalar (single-pair).
+#' @keywords internal
+.compute_cluster_cor <- function(x, y = NULL, cluster_ids, pair_dt = NULL) {
+  if (is.null(y) && !is.null(pair_dt)) {
+    return(.cluster_cor_batch(x, cluster_ids, pair_dt))
+  }
+  .cluster_cor(x, y, cluster_ids)
+}
+
 
 #' Compute correlation on KNN-smoothed expression for all gene pairs
 #'

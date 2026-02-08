@@ -1,7 +1,8 @@
 #' @importFrom data.table := data.table frank setorder setnames
-#' @importFrom stats cor median sd var quantile setNames
-#' @importFrom Matrix sparseMatrix t
+#' @importFrom stats cor median sd var quantile setNames weighted.mean
+#' @importFrom Matrix sparseMatrix t rowMeans rowSums
 #' @importFrom methods as
+#' @importFrom utils head packageVersion
 NULL
 
 utils::globalVariables(

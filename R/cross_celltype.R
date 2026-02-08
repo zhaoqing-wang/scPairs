@@ -71,6 +71,48 @@ NULL
 
 
 # ===========================================================================
+#  Consolidated entry point
+# ===========================================================================
+
+#' Compute cross-cell-type interaction score (unified interface)
+#'
+#' Dispatches to batch mode when \code{pair_dt} is provided (matrix in
+#' \code{mat}), or single-pair mode when \code{x} and \code{y} are vectors.
+#'
+#' @param x Expression matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector.
+#' @param pair_dt data.table with gene1, gene2 columns (batch only).
+#' @param cluster_ids Factor of cell-type assignments.
+#' @param embed PCA embedding matrix.
+#' @param n_bins Integer; number of micro-environment bins.
+#' @param min_cells_per_bin Integer; minimum cells per type per bin.
+#' @param min_bins Integer; minimum valid bins per type pair.
+#' @param min_pct_expressed Numeric; minimum expression % per cell type.
+#' @return Numeric vector of scores (batch) or list with detailed results (single-pair).
+#' @keywords internal
+.compute_cross_celltype <- function(x, y = NULL, pair_dt = NULL,
+                                    cluster_ids, embed,
+                                    n_bins = 50,
+                                    min_cells_per_bin = 5,
+                                    min_bins = 8,
+                                    min_pct_expressed = 0.01) {
+  if (is.null(y) && !is.null(pair_dt)) {
+    return(.cross_celltype_batch(x, pair_dt, cluster_ids, embed,
+                                 n_bins = n_bins,
+                                 min_cells_per_bin = min_cells_per_bin,
+                                 min_bins = min_bins,
+                                 min_pct_expressed = min_pct_expressed))
+  }
+  .cross_celltype(x, y, cluster_ids, embed,
+                  n_bins = n_bins,
+                  min_cells_per_bin = min_cells_per_bin,
+                  min_bins = min_bins,
+                  min_pct_expressed = min_pct_expressed)
+}
+
+
+# ===========================================================================
 #  1. Cross-cell-type interaction score (batch)
 # ===========================================================================
 
@@ -105,6 +147,9 @@ NULL
 #'   for that bin to contribute to the correlation.  Default 5.
 #' @param min_bins Integer; minimum bins with both types present to compute
 #'   a correlation for a given cell-type pair.  Default 8.
+#' @param min_pct_expressed Numeric; minimum percentage of cells (0-1) in a
+#'   cell type that must express a gene for that type to be considered.
+#'   Default 0.01 (1%).
 #'
 #' @return Numeric vector of cross-cell-type interaction scores (one per row
 #'   of \code{pair_dt}).
@@ -113,7 +158,8 @@ NULL
 .cross_celltype_batch <- function(mat, pair_dt, cluster_ids, embed,
                                   n_bins            = 50,
                                   min_cells_per_bin = 5,
-                                  min_bins          = 8) {
+                                  min_bins          = 8,
+                                  min_pct_expressed = 0.01) {
 
   if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
     mat <- as.matrix(mat)
@@ -141,6 +187,22 @@ NULL
 
   if (n_types < 2) return(rep(NA_real_, nrow(pair_dt)))
 
+  # --- Pre-compute expression frequencies per gene per cell type ---
+  unique_genes <- unique(c(pair_dt$gene1, pair_dt$gene2))
+  unique_genes <- intersect(unique_genes, rownames(mat))
+  
+  gene_ct_pct <- matrix(0, nrow = length(unique_genes), ncol = n_types,
+                        dimnames = list(unique_genes, cl_levels))
+  for (ti in seq_along(cl_levels)) {
+    ct <- cl_levels[ti]
+    cells_ct <- which(cluster_ids == ct)
+    if (length(cells_ct) > 0) {
+      for (g in unique_genes) {
+        gene_ct_pct[g, ti] <- mean(mat[g, cells_ct] > 0)
+      }
+    }
+  }
+
   # --- Assign micro-environment bins ---
   bins <- .assign_microenv_bins(embed, n_bins)
 
@@ -152,6 +214,10 @@ NULL
   bin_levels <- sort(unique(bins))
   n_actual_bins <- length(bin_levels)
 
+  # Pre-compute cell indices per (bin, type) pair to avoid repeated subsetting
+  bin_type_cells <- vector("list", n_actual_bins * n_types)
+  dim(bin_type_cells) <- c(n_types, n_actual_bins)
+
   # 3D array: gene x type x bin (pseudo-bulk means)
   pb <- array(NA_real_, dim = c(length(unique_genes), n_types, n_actual_bins),
               dimnames = list(unique_genes, cl_levels, as.character(bin_levels)))
@@ -159,14 +225,19 @@ NULL
   n_cells_tb <- matrix(0L, nrow = n_types, ncol = n_actual_bins,
                         dimnames = list(cl_levels, as.character(bin_levels)))
 
+  # Split cells by bin, then by type (vectorised)
+  cells_by_bin <- split(seq_len(n), bins)
+
   for (bi in seq_along(bin_levels)) {
-    b <- bin_levels[bi]
-    cells_in_bin <- which(bins == b)
+    b <- as.character(bin_levels[bi])
+    cells_in_bin <- cells_by_bin[[b]]
+    ct_of_cells <- cluster_ids[cells_in_bin]
     for (ti in seq_along(cl_levels)) {
       ct <- cl_levels[ti]
-      cells_ct <- cells_in_bin[cluster_ids[cells_in_bin] == ct]
+      cells_ct <- cells_in_bin[ct_of_cells == ct]
       n_ct <- length(cells_ct)
       n_cells_tb[ti, bi] <- n_ct
+      bin_type_cells[[ti, bi]] <- cells_ct
       if (n_ct >= min_cells_per_bin) {
         pb[, ti, bi] <- rowMeans(mat[unique_genes, cells_ct, drop = FALSE])
       }
@@ -195,6 +266,11 @@ NULL
     for (ti in seq_along(cl_levels)) {
       for (tj in seq_along(cl_levels)) {
         if (ti == tj) next
+
+        # Check expression: gene1 in type i, gene2 in type j
+        g1_pct_i <- gene_ct_pct[g1, ti]
+        g2_pct_j <- gene_ct_pct[g2, tj]
+        if (g1_pct_i < min_pct_expressed || g2_pct_j < min_pct_expressed) next
 
         # Bins where both types have enough cells
         valid_bins <- which(n_cells_tb[ti, ] >= min_cells_per_bin &
@@ -279,6 +355,9 @@ NULL
 #' @param min_cells_per_bin Integer; minimum cells of a type per bin.
 #'   Default 5.
 #' @param min_bins Integer; minimum valid bins per type pair.  Default 8.
+#' @param min_pct_expressed Numeric; minimum percentage of cells (0-1) in a
+#'   cell type that must express a gene for that type to be considered.
+#'   Default 0.01 (1%). Prevents spurious correlations with very sparse genes.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -293,7 +372,8 @@ NULL
 .cross_celltype <- function(x, y, cluster_ids, embed,
                             n_bins            = 50,
                             min_cells_per_bin = 5,
-                            min_bins          = 8) {
+                            min_bins          = 8,
+                            min_pct_expressed = 0.01) {
 
   # Align cells across x/y, embed, and cluster_ids
   if (!is.null(names(x)) && !is.null(rownames(embed))) {
@@ -324,6 +404,19 @@ NULL
   )
 
   if (n_types < 2) return(empty_result)
+
+  # --- Pre-compute expression frequencies per cell type ---
+  # This validates that genes are actually expressed before computing correlations
+  gene_ct_pct <- matrix(0, nrow = 2, ncol = n_types,
+                        dimnames = list(c("x", "y"), cl_levels))
+  for (ti in seq_along(cl_levels)) {
+    ct <- cl_levels[ti]
+    cells_ct <- which(cluster_ids == ct)
+    if (length(cells_ct) > 0) {
+      gene_ct_pct["x", ti] <- mean(x[cells_ct] > 0)
+      gene_ct_pct["y", ti] <- mean(y[cells_ct] > 0)
+    }
+  }
 
   # --- Assign micro-environment bins ---
   bins <- .assign_microenv_bins(embed, n_bins)
@@ -373,6 +466,12 @@ NULL
   for (ti in seq_along(cl_levels)) {
     for (tj in seq_along(cl_levels)) {
       if (ti == tj) next
+
+      # Check expression frequency: gene x must be expressed in type i
+      # and gene y must be expressed in type j
+      x_pct_i <- gene_ct_pct["x", ti]
+      y_pct_j <- gene_ct_pct["y", tj]
+      if (x_pct_i < min_pct_expressed || y_pct_j < min_pct_expressed) next
 
       valid_bins <- which(n_cells_tb[ti, ] >= min_cells_per_bin &
                           n_cells_tb[tj, ] >= min_cells_per_bin)

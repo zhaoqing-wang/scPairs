@@ -113,8 +113,22 @@ FindAllPairs <- function(object,
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
 
+  n_cells_total <- ncol(object)
+  .validate_cor_method(cor_method)
+  .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
+  .validate_percentage(smooth_alpha, "smooth_alpha")
+  if (use_neighbourhood) {
+    .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
+  }
+  if (n_perm > 0) {
+    .validate_n_perm(n_perm)
+  }
+
   # --- Select features ------------------------------------------------------
   features <- .select_features(object, features, n_top = n_top_genes, assay = assay)
+  if (!is.null(features) && length(features) > 0) {
+    features <- .validate_features(features, object, assay)
+  }
   .msg("Selected ", length(features), " genes for analysis.", verbose = verbose)
 
   # --- Extract data ---------------------------------------------------------

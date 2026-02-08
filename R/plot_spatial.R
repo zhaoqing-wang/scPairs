@@ -38,13 +38,11 @@ PlotPairSpatial <- function(object,
                             title    = NULL) {
 
   .validate_seurat(object, require_spatial = TRUE)
-  assay <- assay %||% Seurat::DefaultAssay(object)
-
-  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
-                                 assay = assay, slot = slot)
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot)
+  assay <- validated$assay
+  mat <- .prepare_expression_data(object, gene1, gene2,
+                                   assay = assay, slot = slot)
 
   coords <- .get_spatial_coords(object)
   common <- intersect(rownames(coords), colnames(mat))

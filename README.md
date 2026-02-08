@@ -9,7 +9,9 @@
 
 ## Overview
 
-**scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, neighbourhood-level co-expression, and spatial co-variation.
+**scPairs** identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating multiple lines of evidence: co-expression correlation, mutual information, expression ratio consistency, neighbourhood-level co-expression, cross-cell-type interactions, and spatial co-variation.
+
+**Latest (v0.1.4):** Enhanced validation prevents spurious correlations with sparse genes in cross-cell-type analysis, plus comprehensive input validation across all functions.
 
 ---
 
@@ -26,6 +28,7 @@ Single-marker analysis misses **cooperative regulatory programs** where two gene
 | **Neighbourhood co-expression** | KNN-smoothed correlation | Co-expression in adjacent cells |
 | **Neighbourhood enrichment** | Neighbourhood score | Complementary expression in neighbours |
 | **Population-level** | Cluster pseudo-bulk correlation | Co-regulation across cell populations |
+| **Trans-cellular synergy** | Cross-cell-type interaction | Gene A in one cell type ↔ Gene B in neighboring different type |
 | **Spatial co-variation** | Lee's L statistic<sup>2</sup> | Bivariate spatial autocorrelation |
 | **Spatial co-location** | Co-location quotient (CLQ)<sup>3</sup> | Spatial proximity enrichment |
 
@@ -123,9 +126,10 @@ PlotPairSummary(sce, gene1 = "CD8A", gene2 = "CD8B",     # Comprehensive figure
                 result = assessment)
 PlotPairScatter(sce, gene1 = "CD8A", gene2 = "CD8B")     # Gene-gene scatter
 PlotPairViolin(sce, gene1 = "CD8A", gene2 = "CD8B")      # Cluster distributions
+PlotPairCrossType(sce, gene1 = "CD8A", gene2 = "CD8B")   # Cross-cell-type heatmap
 ```
 
-**Output:** Comprehensive metrics (including neighbourhood-aware metrics), per-cluster correlations, synergy score, p-value, and confidence level.
+**Output:** Comprehensive metrics (including neighbourhood-aware and cross-cell-type metrics), per-cluster correlations, synergy score, p-value, and confidence level.
 
 ### Spatial Transcriptomics
 
@@ -157,6 +161,7 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 | **`PlotPairSmoothed()`** | Raw + KNN-smoothed co-expression (6-panel) |
 | **`PlotPairSummary()`** | Comprehensive multi-panel publication figure |
 | **`PlotPairSpatial()`** | Spatial tissue co-expression map (3-panel) |
+| **`PlotPairCrossType()`** | Cross-cell-type interaction heatmap |
 | **`PlotPairViolin()`** | Cluster-level expression violin plots |
 | **`PlotPairScatter()`** | Cell-level gene-gene scatter (with optional marginals) |
 
@@ -166,7 +171,7 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 ### Multi-Evidence Integration
 
-Each gene pair is evaluated using up to 10 metrics:
+Each gene pair is evaluated using up to 11 metrics:
 
 **Cell-Level Co-Expression Metrics:**
 1. **Pearson correlation** – Linear association
@@ -175,14 +180,17 @@ Each gene pair is evaluated using up to 10 metrics:
 4. **Mutual information** – Non-linear statistical dependence
 5. **Ratio consistency** – Expression ratio stability across cell clusters
 
-**Neighbourhood-Aware Metrics** (v0.2.0):
+**Neighbourhood-Aware Metrics** (v0.1.2+):
 6. **KNN-smoothed correlation** – Pearson correlation on KNN-smoothed expression; captures co-expression in adjacent cells
 7. **Neighbourhood co-expression score** – For cells expressing gene A, average expression of gene B in neighbours
 8. **Cluster pseudo-bulk correlation** – Pearson correlation of cluster-level mean expression
 
+**Trans-Cellular Metrics** (v0.1.3+):
+9. **Cross-cell-type interaction** – Gene A in one cell type correlating with gene B in neighbouring cells of different types (paracrine signaling, ligand-receptor pairs)
+
 **Spatial Metrics** (when applicable):
-9. **Lee's L statistic** – Bivariate spatial autocorrelation
-10. **Co-location quotient (CLQ)** – Spatial proximity enrichment
+10. **Lee's L statistic** – Bivariate spatial autocorrelation
+11. **Co-location quotient (CLQ)** – Spatial proximity enrichment
 
 ### Score Integration Formula
 
@@ -204,6 +212,7 @@ Each metric is rank-normalised to [0, 1] within the dataset, then combined via w
 | KNN-smoothed correlation | **1.5** | Neighbourhood-level co-expression |
 | Neighbourhood score | **1.5** | Complementary expression in neighbours |
 | Cluster pseudo-bulk cor | **1.2** | Population-level co-regulation |
+| Cross-cell-type score | **1.5** | Trans-cellular synergy evidence |
 | Lee's L (spatial) | **1.5** | Strong spatial validation |
 | CLQ (spatial) | **1.2** | Spatial co-location evidence |
 
@@ -232,6 +241,7 @@ result$pairs           # data.table with columns:
                        #   gene1, gene2, cor_pearson, cor_spearman, cor_biweight,
                        #   mi_score, ratio_consistency,
                        #   smoothed_cor, neighbourhood_score, cluster_cor,
+                       #   cross_celltype_score,
                        #   spatial_lee_L, spatial_clq,
                        #   synergy_score, rank, p_value, p_adj, confidence
 result$parameters      # Analysis parameters for reproducibility
@@ -254,23 +264,25 @@ result$has_spatial     # Logical: spatial metrics computed?
 ### `scPairs_pair_result` (from `AssessGenePair()`)
 
 ```r
-result$gene1, $gene2   # The query genes
-result$metrics         # Named list of all individual metrics
-result$per_cluster     # data.frame with per-cluster correlations
-result$synergy_score   # Composite score [0, 1]
-result$p_value         # Permutation-based p-value (NA if n_perm=0)
-result$p_adj           # FDR-adjusted p-value
-result$confidence      # "High", "Medium", "Low", or "NS"
-result$jaccard_index   # Expression overlap (Jaccard index)
-result$has_spatial     # Logical: spatial metrics computed?
-result$n_cells         # Number of cells
+result$gene1, $gene2          # The query genes
+result$metrics                # Named list of all individual metrics
+result$per_cluster            # data.frame with per-cluster correlations
+result$cross_celltype_detail  # data.frame with per-cell-type-pair breakdown (v0.1.3+)
+result$synergy_score          # Composite score [0, 1]
+result$p_value                # Permutation-based p-value (NA if n_perm=0)
+result$p_adj                  # FDR-adjusted p-value
+result$confidence             # "High", "Medium", "Low", or "NS"
+result$jaccard_index          # Expression overlap (Jaccard index)
+result$has_spatial            # Logical: spatial metrics computed?
+result$n_cells                # Number of cells
 ```
 
 ---
 
 ## Performance Notes
 
-**v0.1.1+** includes major vectorisation improvements across all metric computations:
+**v0.1.1+** includes major vectorisation improvements across all metric computations.  
+**v0.1.4** adds comprehensive input validation and sparse matrix optimizations:
 
 - **Co-expression filter:** Uses `tcrossprod()` on binary expression matrices — handles millions of pairs in seconds.
 - **Biweight midcorrelation:** Full correlation matrix computed via vectorised Tukey biweight kernel and `tcrossprod()` — no per-pair R-level loops.
@@ -279,8 +291,11 @@ result$n_cells         # Number of cells
 - **CLQ:** Neighbour counts via sparse matrix multiply for all genes at once.
 - **Permutation p-values:** Vectorised null-vs-observed comparison across all pairs per permutation.
 - **Sparse matrix support:** Expression data remains sparse until dense operations are required, minimizing memory footprint.
+- **KNN expression smoothing (v0.1.4):** Defers matrix densification until the final combination step.
+- **Cross-cell-type binning (v0.1.4):** Vectorised cell indexing via `split()` pre-computation.
 - **`data.table` backend:** All pair-level computations use `data.table` for speed and efficiency.
 - **Fast spatial KNN:** Uses `RANN::nn2()` when available for O(n log n) neighbor search; falls back to base R if unavailable.
+- **Input validation (v0.1.4):** Comprehensive parameter checking prevents common errors and provides helpful warnings.
 
 **Typical runtimes** (Intel i7, 16GB RAM):
 - 1000 genes × 5000 cells: ~5-10 seconds (no permutation)
@@ -295,7 +310,7 @@ If you use scPairs in published research, please cite:
 
 ```
 Wang Z (2026). scPairs: Go Beyond Marker Genes – Discover Synergistic Gene
-Pairs in scRNA-seq and Spatial Maps. R package version 0.2.0.
+Pairs in scRNA-seq and Spatial Maps. R package version 0.1.4.
 https://github.com/zhaoqing-wang/scPairs
 ```
 
@@ -305,7 +320,7 @@ BibTeX:
   title = {scPairs: Go Beyond Marker Genes - Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.2.0},
+  note = {R package version 0.1.4},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```

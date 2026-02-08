@@ -15,6 +15,7 @@ PlotPairCrossType(
   neighbourhood_k = 20,
   neighbourhood_reduction = "pca",
   min_cross_pairs = 30,
+  min_pct_expressed = 0.01,
   show_n = TRUE,
   show_reverse = TRUE,
   diverging = TRUE,
@@ -45,6 +46,10 @@ Default \code{"pca"}.}
 
 \item{min_cross_pairs}{Integer; minimum cross-type pairs per tile.
 Tiles with fewer pairs are greyed out.  Default 30.}
+
+\item{min_pct_expressed}{Numeric; minimum percentage of cells (0-1) in a
+cell type that must express a gene. Default 0.01 (1\%). Prevents
+spurious correlations with very sparse genes.}
 
 \item{show_n}{Logical; annotate each tile with the number of cross-type
 neighbour pairs.  Default TRUE.}

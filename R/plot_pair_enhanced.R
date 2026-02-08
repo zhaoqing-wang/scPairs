@@ -43,22 +43,14 @@ PlotPairSmoothed <- function(object,
                              pt_alpha         = 0.8,
                              title            = NULL) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot,
+                                      reduction = reduction)
+  assay <- validated$assay
 
-  # Get embeddings for plotting
-  embed <- tryCatch(
-    Seurat::Embeddings(object, reduction = reduction),
-    error = function(e) {
-      stop(sprintf("Reduction '%s' not found.", reduction), call. = FALSE)
-    }
-  )
-
-  mat <- .get_expression_matrix(object, features = c(gene1, gene2),
-                                 assay = assay, slot = slot)
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat <- as.matrix(mat)
-  }
+  embed <- Seurat::Embeddings(object, reduction = reduction)
+  mat <- .prepare_expression_data(object, gene1, gene2,
+                                   assay = assay, slot = slot)
 
   # Build KNN graph and smooth
   W <- .build_knn_graph(object, reduction = smooth_reduction, k = k)
@@ -173,8 +165,10 @@ PlotPairSummary <- function(object,
                             slot             = "data",
                             pt_size          = 0.3) {
 
-  .validate_seurat(object)
-  assay <- assay %||% Seurat::DefaultAssay(object)
+  validated <- .validate_plot_inputs(object, gene1, gene2,
+                                      assay = assay, slot = slot,
+                                      reduction = reduction)
+  assay <- validated$assay
 
   # Run assessment if not provided
   if (is.null(result)) {

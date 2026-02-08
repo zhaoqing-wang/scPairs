@@ -144,6 +144,68 @@
 }
 
 
+# ---- Consolidated entry points -------------------------------------------
+
+#' Compute biweight midcorrelation (unified interface)
+#'
+#' Dispatches to matrix mode when \code{y} is NULL (batch computation
+#' for all gene pairs), or vector mode when both \code{x} and \code{y}
+#' are numeric vectors (single-pair computation).
+#'
+#' @param x Dense numeric matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector for single-pair mode.
+#' @return Symmetric matrix of biweight midcorrelations (batch) or
+#'     scalar biweight midcorrelation (single-pair).
+#' @keywords internal
+.compute_bicor <- function(x, y = NULL) {
+  if (is.null(y)) {
+    return(.bicor_matrix(x))
+  }
+  .bicor(x, y)
+}
+
+
+#' Compute mutual information (unified interface)
+#'
+#' Dispatches to batch mode when \code{pair_idx} is provided, or
+#' single-pair mode when \code{x} and \code{y} are vectors.
+#'
+#' @param x Dense numeric matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector for single-pair mode.
+#' @param pair_idx 2-row integer matrix of pair indices (batch mode only).
+#' @param n_bins Number of bins for discretisation.
+#' @return Numeric vector of MI values (batch) or scalar MI (single-pair).
+#' @keywords internal
+.compute_mi <- function(x, y = NULL, pair_idx = NULL, n_bins = 5) {
+  if (is.null(y) && !is.null(pair_idx)) {
+    return(.mutual_info_batch(x, pair_idx, n_bins = n_bins))
+  }
+  .mutual_info(x, y, n_bins = n_bins)
+}
+
+
+#' Compute ratio consistency (unified interface)
+#'
+#' Dispatches to batch mode when \code{pair_idx} is provided, or
+#' single-pair mode when \code{x} and \code{y} are vectors.
+#'
+#' @param x Dense numeric matrix (genes x cells) for batch mode, or
+#'     numeric vector for single-pair mode.
+#' @param y NULL for batch mode, or numeric vector for single-pair mode.
+#' @param pair_idx 2-row integer matrix of pair indices (batch mode only).
+#' @param cluster_ids Factor of cluster assignments.
+#' @return Numeric vector of ratio consistency values (batch) or scalar (single-pair).
+#' @keywords internal
+.compute_ratio_consistency <- function(x, y = NULL, pair_idx = NULL, cluster_ids) {
+  if (is.null(y) && !is.null(pair_idx)) {
+    return(.ratio_consistency_batch(x, pair_idx, cluster_ids))
+  }
+  .ratio_consistency(x, y, cluster_ids)
+}
+
+
 # ---- Low-level helper functions (not exported) ----------------------------
 
 #' Compute biweight midcorrelation matrix for all gene pairs
@@ -431,8 +493,8 @@
     cluster_medians <- cluster_medians[seq_len(valid_clusters)]
     mn <- mean(cluster_medians)
 
-    if (abs(mn) < .Machine$double.eps) {
-      rc_vals[k] <- if (stats::sd(cluster_medians) < 0.1) 0.8 else 0
+    if (is.na(mn) || abs(mn) < .Machine$double.eps) {
+      rc_vals[k] <- if (!is.na(mn) && stats::sd(cluster_medians) < 0.1) 0.8 else 0
       next
     }
 

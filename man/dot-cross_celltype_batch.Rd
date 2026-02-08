@@ -11,7 +11,8 @@
   embed,
   n_bins = 50,
   min_cells_per_bin = 5,
-  min_bins = 8
+  min_bins = 8,
+  min_pct_expressed = 0.01
 )
 }
 \arguments{
@@ -30,6 +31,10 @@ for that bin to contribute to the correlation.  Default 5.}
 
 \item{min_bins}{Integer; minimum bins with both types present to compute
 a correlation for a given cell-type pair.  Default 8.}
+
+\item{min_pct_expressed}{Numeric; minimum percentage of cells (0-1) in a
+cell type that must express a gene for that type to be considered.
+Default 0.01 (1\%).}
 }
 \value{
 Numeric vector of cross-cell-type interaction scores (one per row

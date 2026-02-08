@@ -49,6 +49,6 @@ test_that("FindGenePairs errors for missing gene", {
 
   expect_error(
     FindGenePairs(sce, gene = "NONEXISTENT", verbose = FALSE),
-    "not found"
+    "not found|None of the requested features"
   )
 })
