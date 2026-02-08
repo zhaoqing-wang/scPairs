@@ -49,6 +49,18 @@ auto-select from \code{VariableFeatures} or top-expressed genes.}
 
 \item{min_cells_expressed}{Minimum cells co-expressing both genes.}
 
+\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
+(KNN-smoothed correlation and neighbourhood co-expression score).}
+
+\item{neighbourhood_k}{Integer; number of nearest neighbours for the
+neighbourhood graph. Default 20.}
+
+\item{neighbourhood_reduction}{Character; reduction to use for building the
+neighbourhood graph. Default "pca".}
+
+\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
+0 = pure neighbour average, 1 = no smoothing. Default 0.3.}
+
 \item{use_spatial}{Logical; compute spatial metrics if available.}
 
 \item{spatial_k}{Integer; neighbourhood size for spatial metrics.}

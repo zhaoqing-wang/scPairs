@@ -102,7 +102,7 @@ PlotPairSmoothed <- function(object,
 
   .make_panel <- function(data, col, scale_opt, panel_title, subtitle = NULL) {
     data <- data[order(data[[col]]), ]
-    p <- ggplot2::ggplot(data, ggplot2::aes(x = dim1, y = dim2, colour = .data[[col]])) +
+    p <- ggplot2::ggplot(data, ggplot2::aes_string(x = "dim1", y = "dim2", colour = col)) +
       ggplot2::geom_point(size = pt_size, alpha = pt_alpha) +
       ggplot2::scale_color_viridis_c(option = scale_opt, name = "Expr") +
       ggplot2::ggtitle(panel_title, subtitle = subtitle) +
@@ -210,7 +210,7 @@ PlotPairSummary <- function(object,
     stringsAsFactors = FALSE
   )
 
-  cl_means <- aggregate(cbind(expr1, expr2) ~ cluster, data = cluster_df, FUN = mean)
+  cl_means <- stats::aggregate(cbind(expr1, expr2) ~ cluster, data = cluster_df, FUN = mean)
   colnames(cl_means) <- c("cluster", gene1, gene2)
   cl_long <- tidyr::pivot_longer(cl_means, cols = -cluster,
                                   names_to = "gene", values_to = "expression")

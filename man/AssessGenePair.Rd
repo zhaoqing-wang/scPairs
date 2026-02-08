@@ -34,6 +34,18 @@ AssessGenePair(
 
 \item{cluster_col}{Character; cluster column.}
 
+\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
+(KNN-smoothed correlation and neighbourhood co-expression score).}
+
+\item{neighbourhood_k}{Integer; number of nearest neighbours for the
+neighbourhood graph. Default 20.}
+
+\item{neighbourhood_reduction}{Character; reduction to use for building the
+neighbourhood graph. Default "pca".}
+
+\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
+0 = pure neighbour average, 1 = no smoothing. Default 0.3.}
+
 \item{use_spatial}{Logical.}
 
 \item{spatial_k}{Integer; KNN k.}

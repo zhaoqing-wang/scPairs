@@ -25,6 +25,14 @@
 #' @param cor_method Correlation methods to use.
 #' @param n_mi_bins Bins for mutual information.
 #' @param min_cells_expressed Minimum cells co-expressing both genes.
+#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
+#'     (KNN-smoothed correlation and neighbourhood co-expression score).
+#' @param neighbourhood_k Integer; number of nearest neighbours for the
+#'     neighbourhood graph. Default 20.
+#' @param neighbourhood_reduction Character; reduction to use for building the
+#'     neighbourhood graph. Default "pca".
+#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
+#'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
 #' @param use_spatial Logical; compute spatial metrics if available.
 #' @param spatial_k Integer; neighbourhood size for spatial metrics.
 #' @param n_perm Integer; permutations for p-values.
@@ -215,6 +223,10 @@ FindGenePairs <- function(object,
 
       .msg("  Cluster-level correlation ...", verbose = verbose)
       pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
+
+      .msg("  Cross-cell-type interaction score ...", verbose = verbose)
+      pair_dt[, cross_celltype_score := .cross_celltype_batch(
+        mat, pair_dt, W, cluster_ids)]
     }
   }
 

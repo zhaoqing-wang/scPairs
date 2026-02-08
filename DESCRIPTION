@@ -1,7 +1,7 @@
 Package: scPairs
-Version: 0.1.2
+Version: 0.1.3
 Title: Go Beyond Marker Genes, Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps
-Description: Identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data. scPairs integrates multiple lines of evidence including gene co-expression (Pearson, Spearman, biweight midcorrelation), expression ratio consistency across cell populations, mutual information, neighbourhood-aware metrics (KNN-smoothed correlation, neighbourhood co-expression score, and cluster-level pseudo-bulk correlation), and, for spatial data, bivariate spatial autocorrelation (Lee's L statistic) and co-location quotient analysis. The neighbourhood-aware metrics are critical for detecting synergistic gene pairs where cell-level co-expression is absent due to scRNA-seq sparsity or biological stochasticity. A composite synergy score with permutation-based p-values ranks gene pairs by the strength and statistical confidence of their coordinated activity. The package provides three core workflows: (1) global discovery of all significant synergistic gene pairs, (2) query-centric retrieval of partners for a gene of interest, and (3) targeted assessment of a specific gene pair. Rich publication-ready visualizations include gene interaction networks, spatial co-expression maps, pair-wise heatmaps, KNN-smoothed UMAP overlays, and comprehensive synergy summary panels.
+Description: Identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data. scPairs integrates multiple lines of evidence including gene co-expression (Pearson, Spearman, biweight midcorrelation), expression ratio consistency across cell populations, mutual information, neighbourhood-aware metrics (KNN-smoothed correlation, neighbourhood co-expression score, cluster-level pseudo-bulk correlation, and cross-cell-type interaction score), and, for spatial data, bivariate spatial autocorrelation (Lee's L statistic) and co-location quotient analysis. The cross-cell-type interaction metric detects trans-cellular synergies where gene A in one cell type correlates with gene B in a neighbouring cell of a different type, capturing paracrine signalling and ligand-receptor interactions. A composite synergy score with permutation-based p-values ranks gene pairs by the strength and statistical confidence of their coordinated activity. The package provides three core workflows: (1) global discovery of all significant synergistic gene pairs, (2) query-centric retrieval of partners for a gene of interest, and (3) targeted assessment of a specific gene pair. Rich publication-ready visualizations include gene interaction networks, spatial co-expression maps, pair-wise heatmaps, KNN-smoothed UMAP overlays, and comprehensive synergy summary panels.
 Authors@R: 
     person(given = "Zhaoqing", family = "Wang",
            email = "zhaoqingwang@mail.sdu.edu.cn",
@@ -17,6 +17,7 @@ Imports:
     ggplot2,
     ggraph,
     igraph,
+    methods,
     Matrix,
     patchwork,
     Seurat,

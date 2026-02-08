@@ -1,3 +1,34 @@
+# scPairs 0.1.3 (2026-02-08)
+
+## Cross-Cell-Type Interaction Metric
+
+This release adds a new metric for detecting **trans-cellular synergies** -- gene pairs where gene A in one cell type co-varies with gene B in neighbouring cells of a different type. This captures biologically important interactions such as Adora2a--Ido1 signalling, ligand--receptor pairs, and paracrine co-regulation that are invisible to standard within-cell co-expression metrics.
+
+### New Metric
+
+* **Cross-cell-type interaction score (`cross_celltype_score`):** For each gene pair, identifies cross-type neighbour pairs (cell i of type X adjacent to cell j of type Y, where X ≠ Y) from the KNN graph. Computes Pearson correlation of gene A expression in source cells against gene B expression in their cross-type neighbours (direction A→B), and vice versa (B→A). The final score is the geometric mean of absolute correlations: `sqrt(|r_AB| × |r_BA|)`. Weight: **1.5**.
+
+### Updated Functions
+
+* **`AssessGenePair()`** now reports `cross_celltype_score`, `cross_celltype_r_ab` (A→B directional correlation), `cross_celltype_r_ba` (B→A directional correlation), and a `cross_celltype_detail` data.frame with per-cell-type-pair breakdowns.
+
+* **`FindAllPairs()`** and **`FindGenePairs()`** include `cross_celltype_score` in the output pairs data.table when neighbourhood metrics are enabled.
+
+* **Score integration** updated with default weight 1.5 for `cross_celltype_score`.
+
+* **Permutation testing** in `AssessGenePair()` now includes the cross-cell-type metric in the null distribution.
+
+### New Internal Functions
+
+* `.cross_celltype_batch()` — Batch computation of cross-cell-type interaction scores for all gene pairs using pre-computed KNN graph and cluster assignments.
+* `.cross_celltype()` — Single-pair cross-cell-type analysis with per-cell-type-pair breakdown.
+
+### Design Notes
+
+The metric requires at least 2 distinct cell types (clusters) and a minimum of 30 cross-type neighbour pairs (configurable via `min_cross_pairs`). When only one cell type is present, the metric returns NA and is excluded from score integration. The computation reuses the existing KNN weight matrix from the neighbourhood module, adding negligible overhead.
+
+---
+
 # scPairs 0.1.2 (2026-02-08)
 
 ## Neighbourhood-Aware Co-Expression Metrics

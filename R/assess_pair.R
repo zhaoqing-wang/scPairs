@@ -26,6 +26,14 @@
 #' @param assay Character; assay name.
 #' @param slot Character; data slot.
 #' @param cluster_col Character; cluster column.
+#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
+#'     (KNN-smoothed correlation and neighbourhood co-expression score).
+#' @param neighbourhood_k Integer; number of nearest neighbours for the
+#'     neighbourhood graph. Default 20.
+#' @param neighbourhood_reduction Character; reduction to use for building the
+#'     neighbourhood graph. Default "pca".
+#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
+#'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
 #' @param use_spatial Logical.
 #' @param spatial_k Integer; KNN k.
 #' @param n_perm Integer; number of permutations (default 999).
@@ -192,6 +200,12 @@ AssessGenePair <- function(object,
 
       # Cluster-level correlation
       metrics$cluster_cor <- .cluster_cor(x, y, cluster_ids)
+
+      # Cross-cell-type interaction
+      cross_ct <- .cross_celltype(x, y, W, cluster_ids)
+      metrics$cross_celltype_score <- cross_ct$score
+      metrics$cross_celltype_r_ab  <- cross_ct$r_ab
+      metrics$cross_celltype_r_ba  <- cross_ct$r_ba
     }
   }
 
@@ -224,6 +238,7 @@ AssessGenePair <- function(object,
     if (has_neighbourhood) abs(metrics$smoothed_cor) else NULL,
     if (has_neighbourhood) min(pmax(metrics$neighbourhood_score, 0) / 2, 1) else NULL,
     if (has_neighbourhood && !is.na(metrics$cluster_cor)) abs(metrics$cluster_cor) else NULL,
+    if (has_neighbourhood && !is.na(metrics$cross_celltype_score)) metrics$cross_celltype_score else NULL,
     if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
     if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
   ), na.rm = TRUE)
@@ -251,6 +266,7 @@ AssessGenePair <- function(object,
     perm_smoothed <- numeric(n_perm)
     perm_ncs <- numeric(n_perm)
     perm_clcor <- numeric(n_perm)
+    perm_cross_ct <- numeric(n_perm)
 
     for (p in seq_len(n_perm)) {
       yp <- perm_y_mat[, p]
@@ -262,6 +278,8 @@ AssessGenePair <- function(object,
           rbind(x), rbind(yp), W, alpha = smooth_alpha))
         perm_ncs[p] <- min(pmax(.neighbourhood_coexpr(x, yp, W), 0) / 2, 1)
         perm_clcor[p] <- abs(.cluster_cor(x, yp, cluster_ids))
+        ct_res <- .cross_celltype(x, yp, W, cluster_ids)
+        perm_cross_ct[p] <- if (!is.na(ct_res$score)) ct_res$score else 0
       }
     }
 
@@ -270,8 +288,9 @@ AssessGenePair <- function(object,
     null_scores <- perm_pearson + perm_spearman + perm_bicor +
                       perm_mi + perm_rc
     if (has_neighbourhood) {
-      null_scores <- null_scores + perm_smoothed + perm_ncs + perm_clcor
-      n_metrics <- n_metrics + 3L
+      null_scores <- null_scores + perm_smoothed + perm_ncs + perm_clcor +
+                        perm_cross_ct
+      n_metrics <- n_metrics + 4L
     }
     null_scores <- null_scores / n_metrics
 
@@ -290,19 +309,27 @@ AssessGenePair <- function(object,
     else "NS"
   }
 
+  # --- Cross-cell-type detail ------------------------------------------------
+  cross_celltype_detail <- if (has_neighbourhood && exists("cross_ct")) {
+    cross_ct$per_celltype_pair
+  } else {
+    data.frame()
+  }
+
   # --- Return ---------------------------------------------------------------
   structure(
     list(
-      gene1         = gene1,
-      gene2         = gene2,
-      metrics       = metrics,
-      per_cluster   = per_cluster,
-      synergy_score = synergy,
-      p_value       = p_value,
-      confidence    = confidence,
-      jaccard_index = jaccard,
-      has_spatial    = has_spatial,
-      n_cells       = n_cells
+      gene1                = gene1,
+      gene2                = gene2,
+      metrics              = metrics,
+      per_cluster          = per_cluster,
+      cross_celltype_detail = cross_celltype_detail,
+      synergy_score        = synergy,
+      p_value              = p_value,
+      confidence           = confidence,
+      jaccard_index        = jaccard,
+      has_spatial           = has_spatial,
+      n_cells              = n_cells
     ),
     class = "scPairs_pair_result"
   )
@@ -331,5 +358,9 @@ print.scPairs_pair_result <- function(x, ...) {
   if (x$has_spatial) cat("  (Spatial metrics included)\n")
   cat("\n  Per-cluster correlations:\n")
   print(x$per_cluster, row.names = FALSE)
+  if (!is.null(x$cross_celltype_detail) && nrow(x$cross_celltype_detail) > 0) {
+    cat("\n  Cross-cell-type interactions:\n")
+    print(x$cross_celltype_detail, row.names = FALSE)
+  }
   invisible(x)
 }

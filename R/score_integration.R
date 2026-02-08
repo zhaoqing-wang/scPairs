@@ -50,16 +50,17 @@
 
   # Default weights
   default_w <- c(
-    cor_pearson         = 1.0,
-    cor_spearman        = 1.0,
-    cor_biweight        = 1.5,
-    mi_score            = 1.0,
-    ratio_consistency   = 1.2,
-    smoothed_cor        = 1.5,
-    neighbourhood_score = 1.5,
-    cluster_cor         = 1.2,
-    spatial_lee_L       = 1.5,
-    spatial_clq         = 1.2
+    cor_pearson             = 1.0,
+    cor_spearman            = 1.0,
+    cor_biweight            = 1.5,
+    mi_score                = 1.0,
+    ratio_consistency       = 1.2,
+    smoothed_cor            = 1.5,
+    neighbourhood_score     = 1.5,
+    cluster_cor             = 1.2,
+    cross_celltype_score    = 1.5,
+    spatial_lee_L           = 1.5,
+    spatial_clq             = 1.2
   )
 
   if (is.null(weights)) {
@@ -92,7 +93,8 @@
   abs_metrics <- c("cor_pearson", "cor_spearman", "cor_biweight",
                    "smoothed_cor", "cluster_cor", "spatial_lee_L")
   raw_metrics <- c("mi_score", "ratio_consistency",
-                   "neighbourhood_score", "spatial_clq")
+                   "neighbourhood_score", "cross_celltype_score",
+                   "spatial_clq")
 
   rank_norm <- function(x) {
     r <- rank(x, na.last = "keep", ties.method = "average")

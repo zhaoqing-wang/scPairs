@@ -175,6 +175,10 @@ FindAllPairs <- function(object,
 
       .msg("  Cluster-level correlation ...", verbose = verbose)
       pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
+
+      .msg("  Cross-cell-type interaction score ...", verbose = verbose)
+      pair_dt[, cross_celltype_score := .cross_celltype_batch(
+        mat, pair_dt, W, cluster_ids)]
     }
   }
 

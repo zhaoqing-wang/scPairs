@@ -104,6 +104,10 @@ NULL
 .smooth_expression <- function(mat, W, alpha = 0.3) {
   # Ensure alignment
   common <- intersect(colnames(mat), rownames(W))
+  if (length(common) == 0) {
+    return(matrix(numeric(0), nrow = nrow(mat), ncol = 0,
+                  dimnames = list(rownames(mat), character(0))))
+  }
   mat <- mat[, common, drop = FALSE]
   W   <- W[common, common, drop = FALSE]
 
@@ -140,10 +144,19 @@ NULL
                                 method = "pearson") {
   smoothed <- .smooth_expression(mat, W, alpha = alpha)
 
+  if (is.null(dim(smoothed))) {
+    smoothed <- matrix(smoothed, nrow = nrow(mat), ncol = length(smoothed))
+    rownames(smoothed) <- rownames(mat)
+  }
+
+  n_pairs <- nrow(pair_dt)
+  if (nrow(smoothed) < 2 || ncol(smoothed) < 2) {
+    return(rep(NA_real_, n_pairs))
+  }
+
   gene_names <- rownames(smoothed)
   gene_idx <- stats::setNames(seq_along(gene_names), gene_names)
 
-  n_pairs <- nrow(pair_dt)
   cors <- rep(NA_real_, n_pairs)
 
   # Build full correlation matrix for efficiency when many pairs
