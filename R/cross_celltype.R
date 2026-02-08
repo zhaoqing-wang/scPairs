@@ -119,6 +119,21 @@ NULL
     mat <- as.matrix(mat)
   }
 
+  # Align cells across mat, embed, and cluster_ids
+  if (!is.null(rownames(embed))) {
+    common <- intersect(colnames(mat), rownames(embed))
+    if (!is.null(names(cluster_ids))) {
+      common <- intersect(common, names(cluster_ids))
+    }
+    if (length(common) >= 2) {
+      mat <- mat[, common, drop = FALSE]
+      embed <- embed[common, , drop = FALSE]
+      if (!is.null(names(cluster_ids))) {
+        cluster_ids <- cluster_ids[common]
+      }
+    }
+  }
+
   n <- ncol(mat)
   cluster_ids <- as.factor(cluster_ids)
   cl_levels <- levels(cluster_ids)
@@ -279,6 +294,24 @@ NULL
                             n_bins            = 50,
                             min_cells_per_bin = 5,
                             min_bins          = 8) {
+
+  # Align cells across x/y, embed, and cluster_ids
+  if (!is.null(names(x)) && !is.null(rownames(embed))) {
+    common <- intersect(names(x), rownames(embed))
+    if (!is.null(names(cluster_ids))) {
+      common <- intersect(common, names(cluster_ids))
+    }
+    if (length(common) >= 2) {
+      x <- x[common]
+      y <- y[common]
+      embed <- embed[common, , drop = FALSE]
+      if (!is.null(names(cluster_ids))) {
+        cluster_ids <- cluster_ids[common]
+      }
+    } else {
+      return(empty_result)
+    }
+  }
 
   n <- length(x)
   cluster_ids <- as.factor(cluster_ids)
