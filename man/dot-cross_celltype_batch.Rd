@@ -4,20 +4,32 @@
 \alias{.cross_celltype_batch}
 \title{Compute cross-cell-type interaction scores for gene pairs}
 \usage{
-.cross_celltype_batch(mat, pair_dt, W, cluster_ids, min_cross_pairs = 30)
+.cross_celltype_batch(
+  mat,
+  pair_dt,
+  cluster_ids,
+  embed,
+  n_bins = 50,
+  min_cells_per_bin = 5,
+  min_bins = 8
+)
 }
 \arguments{
 \item{mat}{Expression matrix (genes x cells, dense or sparse).}
 
 \item{pair_dt}{\code{data.table} with columns \code{gene1}, \code{gene2}.}
 
-\item{W}{Sparse KNN weight matrix (n_cells x n_cells), row-standardised.}
+\item{cluster_ids}{Factor of cell-type / cluster assignments.}
 
-\item{cluster_ids}{Factor of cell-type / cluster assignments (one per cell).}
+\item{embed}{Numeric matrix of PCA embedding (n_cells x n_dims).}
 
-\item{min_cross_pairs}{Integer; minimum number of cross-type neighbour
-pairs required to compute a correlation.
-Pairs with fewer observations get NA.  Default 30.}
+\item{n_bins}{Integer; number of micro-environment bins.  Default 50.}
+
+\item{min_cells_per_bin}{Integer; minimum cells of a given type in a bin
+for that bin to contribute to the correlation.  Default 5.}
+
+\item{min_bins}{Integer; minimum bins with both types present to compute
+a correlation for a given cell-type pair.  Default 8.}
 }
 \value{
 Numeric vector of cross-cell-type interaction scores (one per row
@@ -26,28 +38,25 @@ of \code{pair_dt}).
 \description{
 For each gene pair (A, B), this metric measures whether expression of
 gene A in cells of one type correlates with expression of gene B in
-neighbouring cells of a \emph{different} type.
+cells of a \emph{different} type that share the same tissue micro-environment.
 }
 \section{Algorithm}{
 
 \enumerate{
-\item Build a KNN graph (from PCA embedding or spatial coordinates).
-\item For each cell \eqn{i} of type \eqn{c_i}, identify its neighbours
-that belong to a \emph{different} cell type \eqn{c_j \neq c_i}.
-\item For each such cross-type neighbour \eqn{j}, record the pair
-\eqn{(expr_A(i),\; expr_B(j))}.
-\item Compute the Pearson correlation of these cross-type expression
-pairs.  This gives the directed score \eqn{A \to B} ("gene A in
-the source cell, gene B in the neighbour").
-\item Repeat for the reverse direction \eqn{B \to A}.
-\item The final score is the geometric mean of the absolute values:
-\deqn{cross\_celltype\_score = \sqrt{|r_{A \to B}| \times |r_{B \to A}|}}
+\item Partition all cells into micro-environment bins using k-means on the
+PCA embedding.  Each bin represents a local tissue context containing
+cells of multiple types.
+\item For each cell-type pair (type_i, type_j, i != j), compute pseudo-bulk
+expression per bin: mean(gene_A) in type_i cells of that bin and
+mean(gene_B) in type_j cells of that bin.
+\item Correlate the paired pseudo-bulk vectors across bins (Pearson r).
+This gives the directed score A -> B.
+\item Repeat for B -> A.
+\item Aggregate across all cell-type pairs using a weighted mean (weighted
+by number of bins with sufficient cells of both types).
+\item Final score = geometric mean of |aggregated r(A->B)| and
+|aggregated r(B->A)|.
 }
-
-A high score indicates that expression of gene A in one cell type
-\emph{systematically} co-varies with expression of gene B in a
-neighbouring cell type, consistent with trans-cellular signalling
-or paracrine co-regulation.
 }
 
 \keyword{internal}

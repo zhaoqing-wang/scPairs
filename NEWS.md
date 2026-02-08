@@ -18,6 +18,10 @@ This release adds a new metric for detecting **trans-cellular synergies** -- gen
 
 * **Permutation testing** in `AssessGenePair()` now includes the cross-cell-type metric in the null distribution.
 
+### New Visualisation Function
+
+* **`PlotPairCrossType()`** — Heatmap of cross-cell-type interaction correlations. Each tile represents a directed cell-type pair (source → neighbour), coloured by the Pearson correlation between gene A expression in source cells and gene B expression in neighbouring cells of a different type. Supports both single-panel and two-panel (forward + reverse direction) display. Tiles annotated with r values and sample sizes; insufficient-data tiles greyed out. Uses a diverging red–white–blue colour scale centred at zero. Accepts a pre-computed `scPairs_pair_result` to avoid redundant computation.
+
 ### New Internal Functions
 
 * `.cross_celltype_batch()` — Batch computation of cross-cell-type interaction scores for all gene pairs using pre-computed KNN graph and cluster assignments.

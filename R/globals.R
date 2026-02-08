@@ -18,5 +18,6 @@ utils::globalVariables(
     "smoothed_cor", "neighbourhood_score", "cluster_cor",
     "cross_celltype_score",
     "smoothed_expr1", "smoothed_expr2", "expression", "expr_status",
-    "metric", "metric_value", "type")
+    "metric", "metric_value", "type",
+    "source_type", "neighbour_type", "r_plot", "label", "sufficient")
 )

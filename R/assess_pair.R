@@ -201,11 +201,19 @@ AssessGenePair <- function(object,
       # Cluster-level correlation
       metrics$cluster_cor <- .cluster_cor(x, y, cluster_ids)
 
-      # Cross-cell-type interaction
-      cross_ct <- .cross_celltype(x, y, W, cluster_ids)
-      metrics$cross_celltype_score <- cross_ct$score
-      metrics$cross_celltype_r_ab  <- cross_ct$r_ab
-      metrics$cross_celltype_r_ba  <- cross_ct$r_ba
+      # Cross-cell-type interaction (uses embedding, not KNN graph)
+      embed <- tryCatch(
+        Seurat::Embeddings(object, reduction = neighbourhood_reduction),
+        error = function(e) NULL
+      )
+      if (!is.null(embed)) {
+        dims_use <- seq_len(min(30, ncol(embed)))
+        cross_ct <- .cross_celltype(x, y, cluster_ids,
+                                    embed[, dims_use, drop = FALSE])
+        metrics$cross_celltype_score <- cross_ct$score
+        metrics$cross_celltype_r_ab  <- cross_ct$r_ab
+        metrics$cross_celltype_r_ba  <- cross_ct$r_ba
+      }
     }
   }
 
@@ -278,8 +286,11 @@ AssessGenePair <- function(object,
           rbind(x), rbind(yp), W, alpha = smooth_alpha))
         perm_ncs[p] <- min(pmax(.neighbourhood_coexpr(x, yp, W), 0) / 2, 1)
         perm_clcor[p] <- abs(.cluster_cor(x, yp, cluster_ids))
-        ct_res <- .cross_celltype(x, yp, W, cluster_ids)
-        perm_cross_ct[p] <- if (!is.na(ct_res$score)) ct_res$score else 0
+        if (!is.null(embed)) {
+          ct_res <- .cross_celltype(x, yp, cluster_ids,
+                                    embed[, dims_use, drop = FALSE])
+          perm_cross_ct[p] <- if (!is.na(ct_res$score)) ct_res$score else 0
+        }
       }
     }
 

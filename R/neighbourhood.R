@@ -144,6 +144,11 @@ NULL
                                 method = "pearson") {
   smoothed <- .smooth_expression(mat, W, alpha = alpha)
 
+  # Ensure dense base matrix (cor() does not accept dgeMatrix)
+  if (inherits(smoothed, "Matrix") || inherits(smoothed, "dgeMatrix")) {
+    smoothed <- as.matrix(smoothed)
+  }
+
   if (is.null(dim(smoothed))) {
     smoothed <- matrix(smoothed, nrow = nrow(mat), ncol = length(smoothed))
     rownames(smoothed) <- rownames(mat)

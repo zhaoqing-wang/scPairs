@@ -13,19 +13,27 @@ signalling and ligand--receptor pairs.
 }
 \details{
 This module provides a \strong{cross-cell-type interaction score} that detects
-such trans-cellular synergies.  For every ordered pair of cell types
-(type_i, type_j where i != j), we measure:
+such trans-cellular synergies.  The key insight is that "neighbouring" in
+this context means cells that could plausibly interact -- \strong{not} cells that
+are close in PCA/UMAP space (which groups cells of the \emph{same} type
+together).
+
+\strong{Algorithm:}
+For each ordered pair of cell types (type_i, type_j where i != j):
 
 \enumerate{
-\item The mean expression of gene A in cells of type_i whose neighbours
-include cells of type_j.
-\item The mean expression of gene B in those type_j neighbour cells.
-\item The correlation of these boundary expression levels across all
-type_i -> type_j neighbour pairs.
+\item Partition cells of each type into \code{n_bins} matched groups
+(bins) by splitting the shared PCA embedding into spatial
+micro-environments, so that cells in the same bin represent the
+same local tissue context.
+\item Compute pseudo-bulk expression of gene A in type_i cells per bin,
+and pseudo-bulk expression of gene B in type_j cells per bin.
+\item Correlate these paired pseudo-bulks across bins.
 }
 
-The final \strong{cross-cell-type score} aggregates this signal over all
-cell-type pairs, capturing whether gene A in one cell type co-varies with
-gene B in a neighbouring cell type (and vice versa).
+This captures whether tissue regions where type_i cells express high
+gene A tend to be regions where type_j cells express high gene B --
+exactly the signal expected from paracrine signalling or trans-cellular
+co-regulation.
 }
 \keyword{internal}

@@ -8,24 +8,66 @@
 #' signalling and ligand--receptor pairs.
 #'
 #' This module provides a **cross-cell-type interaction score** that detects
-#' such trans-cellular synergies.  For every ordered pair of cell types
-#' (type_i, type_j where i != j), we measure:
+#' such trans-cellular synergies.  The key insight is that "neighbouring" in
+#' this context means cells that could plausibly interact -- **not** cells that
+#' are close in PCA/UMAP space (which groups cells of the *same* type
+#' together).
+#'
+#' **Algorithm:**
+#' For each ordered pair of cell types (type_i, type_j where i != j):
 #'
 #' \enumerate{
-#'   \item The mean expression of gene A in cells of type_i whose neighbours
-#'         include cells of type_j.
-#'   \item The mean expression of gene B in those type_j neighbour cells.
-#'   \item The correlation of these boundary expression levels across all
-#'         type_i -> type_j neighbour pairs.
+#'   \item Partition cells of each type into \code{n_bins} matched groups
+#'         (bins) by splitting the shared PCA embedding into spatial
+#'         micro-environments, so that cells in the same bin represent the
+#'         same local tissue context.
+#'   \item Compute pseudo-bulk expression of gene A in type_i cells per bin,
+#'         and pseudo-bulk expression of gene B in type_j cells per bin.
+#'   \item Correlate these paired pseudo-bulks across bins.
 #' }
 #'
-#' The final **cross-cell-type score** aggregates this signal over all
-#' cell-type pairs, capturing whether gene A in one cell type co-varies with
-#' gene B in a neighbouring cell type (and vice versa).
+#' This captures whether tissue regions where type_i cells express high
+#' gene A tend to be regions where type_j cells express high gene B --
+#' exactly the signal expected from paracrine signalling or trans-cellular
+#' co-regulation.
 #'
 #' @name cross-celltype-metrics
 #' @keywords internal
 NULL
+
+
+# ===========================================================================
+#  Helper: Build micro-environment bins from PCA embedding
+# ===========================================================================
+
+#' Assign cells to micro-environment bins using k-means on PCA embedding
+#'
+#' Cells are clustered into spatial micro-environment bins so that each bin
+#' represents a local neighbourhood of the tissue.  Crucially, cells of
+#' *all* types within the same bin are considered to share a micro-environment
+#' and can thus interact.
+#'
+#' @param embed Numeric matrix (n_cells x n_dims) of PCA (or other) embedding.
+#' @param n_bins Integer; number of micro-environment bins.
+#' @return Integer vector of bin assignments (1..n_bins).
+#' @keywords internal
+.assign_microenv_bins <- function(embed, n_bins) {
+  n <- nrow(embed)
+  n_bins <- min(n_bins, n)
+
+  km <- tryCatch(
+    stats::kmeans(embed, centers = n_bins, nstart = 3, iter.max = 50),
+    error = function(e) NULL
+  )
+
+  if (is.null(km)) {
+    # Fallback: assign bins by cutting each PCA dimension
+    scores <- embed[, 1]
+    return(as.integer(cut(scores, breaks = n_bins, labels = FALSE)))
+  }
+
+  km$cluster
+}
 
 
 # ===========================================================================
@@ -36,93 +78,87 @@ NULL
 #'
 #' For each gene pair (A, B), this metric measures whether expression of
 #' gene A in cells of one type correlates with expression of gene B in
-#' neighbouring cells of a *different* type.
+#' cells of a *different* type that share the same tissue micro-environment.
 #'
 #' @section Algorithm:
 #'
-#' 1. Build a KNN graph (from PCA embedding or spatial coordinates).
-#' 2. For each cell \eqn{i} of type \eqn{c_i}, identify its neighbours
-#'    that belong to a *different* cell type \eqn{c_j \neq c_i}.
-#' 3. For each such cross-type neighbour \eqn{j}, record the pair
-#'    \eqn{(expr_A(i),\; expr_B(j))}.
-#' 4. Compute the Pearson correlation of these cross-type expression
-#'    pairs.  This gives the directed score \eqn{A \to B} ("gene A in
-#'    the source cell, gene B in the neighbour").
-#' 5. Repeat for the reverse direction \eqn{B \to A}.
-#' 6. The final score is the geometric mean of the absolute values:
-#'    \deqn{cross\_celltype\_score = \sqrt{|r_{A \to B}| \times |r_{B \to A}|}}
-#'
-#' A high score indicates that expression of gene A in one cell type
-#' *systematically* co-varies with expression of gene B in a
-#' neighbouring cell type, consistent with trans-cellular signalling
-#' or paracrine co-regulation.
+#' 1. Partition all cells into micro-environment bins using k-means on the
+#'    PCA embedding.  Each bin represents a local tissue context containing
+#'    cells of multiple types.
+#' 2. For each cell-type pair (type_i, type_j, i != j), compute pseudo-bulk
+#'    expression per bin: mean(gene_A) in type_i cells of that bin and
+#'    mean(gene_B) in type_j cells of that bin.
+#' 3. Correlate the paired pseudo-bulk vectors across bins (Pearson r).
+#'    This gives the directed score A -> B.
+#' 4. Repeat for B -> A.
+#' 5. Aggregate across all cell-type pairs using a weighted mean (weighted
+#'    by number of bins with sufficient cells of both types).
+#' 6. Final score = geometric mean of |aggregated r(A->B)| and
+#'    |aggregated r(B->A)|.
 #'
 #' @param mat Expression matrix (genes x cells, dense or sparse).
 #' @param pair_dt \code{data.table} with columns \code{gene1}, \code{gene2}.
-#' @param W Sparse KNN weight matrix (n_cells x n_cells), row-standardised.
-#' @param cluster_ids Factor of cell-type / cluster assignments (one per cell).
-#' @param min_cross_pairs Integer; minimum number of cross-type neighbour
-#'   pairs required to compute a correlation.
-#'   Pairs with fewer observations get NA.  Default 30.
+#' @param cluster_ids Factor of cell-type / cluster assignments.
+#' @param embed Numeric matrix of PCA embedding (n_cells x n_dims).
+#' @param n_bins Integer; number of micro-environment bins.  Default 50.
+#' @param min_cells_per_bin Integer; minimum cells of a given type in a bin
+#'   for that bin to contribute to the correlation.  Default 5.
+#' @param min_bins Integer; minimum bins with both types present to compute
+#'   a correlation for a given cell-type pair.  Default 8.
 #'
 #' @return Numeric vector of cross-cell-type interaction scores (one per row
 #'   of \code{pair_dt}).
 #'
 #' @keywords internal
-.cross_celltype_batch <- function(mat, pair_dt, W, cluster_ids,
-                                  min_cross_pairs = 30) {
-
-  common <- intersect(colnames(mat), rownames(W))
-  mat <- mat[, common, drop = FALSE]
-  W   <- W[common, common, drop = FALSE]
-  n   <- length(common)
+.cross_celltype_batch <- function(mat, pair_dt, cluster_ids, embed,
+                                  n_bins            = 50,
+                                  min_cells_per_bin = 5,
+                                  min_bins          = 8) {
 
   if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
     mat <- as.matrix(mat)
   }
 
-  # Align cluster_ids with common cells
-  if (!is.null(names(cluster_ids))) {
-    cluster_ids <- cluster_ids[common]
-  } else {
-    # Assume same order as original Seurat columns
-    cluster_ids <- cluster_ids[seq_len(n)]
-  }
-  cluster_ids <- as.integer(as.factor(cluster_ids))
+  n <- ncol(mat)
+  cluster_ids <- as.factor(cluster_ids)
+  cl_levels <- levels(cluster_ids)
+  n_types <- length(cl_levels)
 
-  # --- Build cross-type neighbour pairs ------------------------------------
-  # For each cell i, identify all neighbours j where cluster(j) != cluster(i)
-  # W is row-standardised sparse; non-zero entries indicate neighbours
-  W_binary <- methods::as(W > 0, "CsparseMatrix")
+  if (n_types < 2) return(rep(NA_real_, nrow(pair_dt)))
 
-  # Extract (i, j) pairs from sparse matrix
-  # dgCMatrix stores in compressed column format; convert to triplet for rows
-  W_triplet <- methods::as(W_binary, "TsparseMatrix")
-  row_idx <- W_triplet@i + 1L    # 0-indexed -> 1-indexed
-  col_idx <- W_triplet@j + 1L
+  # --- Assign micro-environment bins ---
+  bins <- .assign_microenv_bins(embed, n_bins)
 
-  # Keep only cross-type pairs: cluster(i) != cluster(j)
-  cross_mask <- cluster_ids[row_idx] != cluster_ids[col_idx]
-  src_cells <- row_idx[cross_mask]   # "source" cell (type A)
-  nbr_cells <- col_idx[cross_mask]   # "neighbour" cell (type B)
-
-  n_cross <- length(src_cells)
-
-  if (n_cross < min_cross_pairs) {
-    return(rep(NA_real_, nrow(pair_dt)))
-  }
-
-  # --- Pre-extract expression for cross-type pairs -------------------------
+  # --- Pre-compute pseudo-bulk: mean expression per gene per type per bin ---
   unique_genes <- unique(c(pair_dt$gene1, pair_dt$gene2))
   unique_genes <- intersect(unique_genes, rownames(mat))
   gene_idx <- stats::setNames(seq_along(unique_genes), unique_genes)
 
-  # Expression at source cells and neighbour cells for all genes
-  # These are matrices: n_unique_genes x n_cross_pairs
-  expr_src <- mat[unique_genes, src_cells, drop = FALSE]
-  expr_nbr <- mat[unique_genes, nbr_cells, drop = FALSE]
+  bin_levels <- sort(unique(bins))
+  n_actual_bins <- length(bin_levels)
 
-  # --- Compute per-pair cross-type correlations ----------------------------
+  # 3D array: gene x type x bin (pseudo-bulk means)
+  pb <- array(NA_real_, dim = c(length(unique_genes), n_types, n_actual_bins),
+              dimnames = list(unique_genes, cl_levels, as.character(bin_levels)))
+  # Count of cells per type per bin
+  n_cells_tb <- matrix(0L, nrow = n_types, ncol = n_actual_bins,
+                        dimnames = list(cl_levels, as.character(bin_levels)))
+
+  for (bi in seq_along(bin_levels)) {
+    b <- bin_levels[bi]
+    cells_in_bin <- which(bins == b)
+    for (ti in seq_along(cl_levels)) {
+      ct <- cl_levels[ti]
+      cells_ct <- cells_in_bin[cluster_ids[cells_in_bin] == ct]
+      n_ct <- length(cells_ct)
+      n_cells_tb[ti, bi] <- n_ct
+      if (n_ct >= min_cells_per_bin) {
+        pb[, ti, bi] <- rowMeans(mat[unique_genes, cells_ct, drop = FALSE])
+      }
+    }
+  }
+
+  # --- Compute per-pair scores ---
   n_pairs <- nrow(pair_dt)
   scores <- numeric(n_pairs)
 
@@ -135,46 +171,70 @@ NULL
       next
     }
 
-    gi1 <- gene_idx[g1]
-    gi2 <- gene_idx[g2]
+    # Aggregate r(A->B) and r(B->A) across all type pairs
+    r_ab_vals <- numeric(0)
+    r_ba_vals <- numeric(0)
+    w_ab <- numeric(0)
+    w_ba <- numeric(0)
 
-    # Direction A->B: gene1 in source cell, gene2 in neighbour cell
-    a_src <- expr_src[gi1, ]   # gene1 expression at source cells
-    b_nbr <- expr_nbr[gi2, ]  # gene2 expression at neighbour cells
+    for (ti in seq_along(cl_levels)) {
+      for (tj in seq_along(cl_levels)) {
+        if (ti == tj) next
 
-    # Direction B->A: gene2 in source cell, gene1 in neighbour cell
-    b_src <- expr_src[gi2, ]
-    a_nbr <- expr_nbr[gi1, ]
+        # Bins where both types have enough cells
+        valid_bins <- which(n_cells_tb[ti, ] >= min_cells_per_bin &
+                            n_cells_tb[tj, ] >= min_cells_per_bin)
+        if (length(valid_bins) < min_bins) next
 
-    # Filter to pairs with some expression (avoid all-zero correlations)
-    valid_ab <- (a_src > 0) | (b_nbr > 0)
-    valid_ba <- (b_src > 0) | (a_nbr > 0)
+        # A->B: gene1 in type_i, gene2 in type_j
+        x_ab <- pb[g1, ti, valid_bins]
+        y_ab <- pb[g2, tj, valid_bins]
 
-    n_ab <- sum(valid_ab)
-    n_ba <- sum(valid_ba)
+        # B->A: gene2 in type_i, gene1 in type_j
+        x_ba <- pb[g2, ti, valid_bins]
+        y_ba <- pb[g1, tj, valid_bins]
 
-    if (n_ab < min_cross_pairs || n_ba < min_cross_pairs) {
+        # Skip if either vector is constant or all NA
+        sd_x_ab <- stats::sd(x_ab, na.rm = TRUE)
+        sd_y_ab <- stats::sd(y_ab, na.rm = TRUE)
+        if (is.na(sd_x_ab) || is.na(sd_y_ab) ||
+            sd_x_ab < 1e-10 || sd_y_ab < 1e-10) next
+
+        r_ab <- stats::cor(x_ab, y_ab, use = "pairwise.complete.obs")
+        if (!is.na(r_ab)) {
+          r_ab_vals <- c(r_ab_vals, r_ab)
+          w_ab <- c(w_ab, length(valid_bins))
+        }
+
+        sd_x_ba <- stats::sd(x_ba, na.rm = TRUE)
+        sd_y_ba <- stats::sd(y_ba, na.rm = TRUE)
+        if (is.na(sd_x_ba) || is.na(sd_y_ba) ||
+            sd_x_ba < 1e-10 || sd_y_ba < 1e-10) next
+
+        r_ba <- stats::cor(x_ba, y_ba, use = "pairwise.complete.obs")
+        if (!is.na(r_ba)) {
+          r_ba_vals <- c(r_ba_vals, r_ba)
+          w_ba <- c(w_ba, length(valid_bins))
+        }
+      }
+    }
+
+    if (length(r_ab_vals) == 0 || length(r_ba_vals) == 0) {
       scores[pi] <- NA_real_
       next
     }
 
-    # Pearson correlations for both directions
-    r_ab <- stats::cor(a_src[valid_ab], b_nbr[valid_ab], method = "pearson")
-    r_ba <- stats::cor(b_src[valid_ba], a_nbr[valid_ba], method = "pearson")
+    # Weighted mean across type pairs
+    agg_ab <- stats::weighted.mean(r_ab_vals, w_ab)
+    agg_ba <- stats::weighted.mean(r_ba_vals, w_ba)
 
-    if (is.na(r_ab) || is.na(r_ba)) {
-      scores[pi] <- NA_real_
-      next
-    }
+    abs_ab <- abs(agg_ab)
+    abs_ba <- abs(agg_ba)
 
-    # Geometric mean of absolute correlations
-    abs_ab <- abs(r_ab)
-    abs_ba <- abs(r_ba)
-
-    if (abs_ab > 0 && abs_ba > 0) {
-      scores[pi] <- sqrt(abs_ab * abs_ba)
+    scores[pi] <- if (abs_ab > 0 && abs_ba > 0) {
+      sqrt(abs_ab * abs_ba)
     } else {
-      scores[pi] <- 0
+      0
     }
   }
 
@@ -189,125 +249,165 @@ NULL
 #' Cross-cell-type interaction score for a single gene pair
 #'
 #' Measures whether gene A expressed in one cell type correlates with gene B
-#' expressed in neighbouring cells of a different type.
+#' expressed in a different cell type sharing the same tissue micro-environment.
+#'
+#' Unlike the KNN-graph-based approach, this method does **not** require
+#' cells of different types to be neighbours in PCA/UMAP space.  Instead,
+#' it partitions cells into micro-environment bins (using k-means on the
+#' embedding) and computes pseudo-bulk correlations across bins.
 #'
 #' @param x Numeric vector; expression of gene1 (length n_cells).
 #' @param y Numeric vector; expression of gene2 (length n_cells).
-#' @param W Sparse KNN weight matrix (n_cells x n_cells).
-#' @param cluster_ids Factor/integer of cluster assignments.
-#' @param min_cross_pairs Minimum cross-type pairs for correlation.
+#' @param cluster_ids Factor of cluster / cell-type assignments.
+#' @param embed Numeric matrix of PCA embedding (n_cells x n_dims).
+#' @param n_bins Integer; number of micro-environment bins.  Default 50.
+#' @param min_cells_per_bin Integer; minimum cells of a type per bin.
+#'   Default 5.
+#' @param min_bins Integer; minimum valid bins per type pair.  Default 8.
 #'
 #' @return A list with components:
 #'   \describe{
-#'     \item{\code{score}}{Geometric mean of |r(A->B)| and |r(B->A)|.}
-#'     \item{\code{r_ab}}{Pearson r for gene1 in source -> gene2 in neighbour.}
-#'     \item{\code{r_ba}}{Pearson r for gene2 in source -> gene1 in neighbour.}
-#'     \item{\code{n_cross_pairs}}{Number of cross-type neighbour pairs used.}
-#'     \item{\code{per_celltype_pair}}{data.frame of per-celltype-pair results
-#'       (only for the single-pair function).}
+#'     \item{\code{score}}{Geometric mean of |agg_r(A->B)| and |agg_r(B->A)|.}
+#'     \item{\code{r_ab}}{Weighted mean r for gene1-in-source, gene2-in-neighbour.}
+#'     \item{\code{r_ba}}{Weighted mean r for gene2-in-source, gene1-in-neighbour.}
+#'     \item{\code{n_type_pairs}}{Number of cell-type pairs contributing.}
+#'     \item{\code{per_celltype_pair}}{data.frame with per-type-pair breakdown.}
 #'   }
 #'
 #' @keywords internal
-.cross_celltype <- function(x, y, W, cluster_ids, min_cross_pairs = 30) {
+.cross_celltype <- function(x, y, cluster_ids, embed,
+                            n_bins            = 50,
+                            min_cells_per_bin = 5,
+                            min_bins          = 8) {
 
   n <- length(x)
   cluster_ids <- as.factor(cluster_ids)
-  cl_int <- as.integer(cluster_ids)
   cl_levels <- levels(cluster_ids)
+  n_types <- length(cl_levels)
 
-  # Build cross-type neighbour pairs
+  empty_result <- list(
+    score = NA_real_, r_ab = NA_real_, r_ba = NA_real_,
+    n_type_pairs = 0L, per_celltype_pair = data.frame()
+  )
 
-  W_binary <- methods::as(W > 0, "CsparseMatrix")
-  W_triplet <- methods::as(W_binary, "TsparseMatrix")
-  row_idx <- W_triplet@i + 1L
-  col_idx <- W_triplet@j + 1L
+  if (n_types < 2) return(empty_result)
 
-  cross_mask <- cl_int[row_idx] != cl_int[col_idx]
-  src_cells <- row_idx[cross_mask]
-  nbr_cells <- col_idx[cross_mask]
-  n_cross <- length(src_cells)
+  # --- Assign micro-environment bins ---
+  bins <- .assign_microenv_bins(embed, n_bins)
 
-  if (n_cross < min_cross_pairs) {
-    return(list(
-      score = NA_real_, r_ab = NA_real_, r_ba = NA_real_,
-      n_cross_pairs = n_cross, per_celltype_pair = data.frame()
-    ))
+  bin_levels <- sort(unique(bins))
+  n_actual_bins <- length(bin_levels)
+
+  # --- Per-type per-bin pseudo-bulk ---
+  # For a single pair we only need 2 genes; store as type x bin matrices
+  pb_x <- matrix(NA_real_, nrow = n_types, ncol = n_actual_bins,
+                  dimnames = list(cl_levels, as.character(bin_levels)))
+  pb_y <- matrix(NA_real_, nrow = n_types, ncol = n_actual_bins,
+                  dimnames = list(cl_levels, as.character(bin_levels)))
+  n_cells_tb <- matrix(0L, nrow = n_types, ncol = n_actual_bins,
+                        dimnames = list(cl_levels, as.character(bin_levels)))
+
+  for (bi in seq_along(bin_levels)) {
+    b <- bin_levels[bi]
+    cells_in_bin <- which(bins == b)
+    for (ti in seq_along(cl_levels)) {
+      ct <- cl_levels[ti]
+      cells_ct <- cells_in_bin[cluster_ids[cells_in_bin] == ct]
+      n_ct <- length(cells_ct)
+      n_cells_tb[ti, bi] <- n_ct
+      if (n_ct >= min_cells_per_bin) {
+        pb_x[ti, bi] <- mean(x[cells_ct])
+        pb_y[ti, bi] <- mean(y[cells_ct])
+      }
+    }
   }
 
-  # --- Global cross-type correlations ---
-  # A->B: gene1 at source, gene2 at neighbour
-  a_src <- x[src_cells]
-  b_nbr <- y[nbr_cells]
-  valid_ab <- (a_src > 0) | (b_nbr > 0)
-
-  # B->A: gene2 at source, gene1 at neighbour
-  b_src <- y[src_cells]
-  a_nbr <- x[nbr_cells]
-  valid_ba <- (b_src > 0) | (a_nbr > 0)
-
-  r_ab <- if (sum(valid_ab) >= min_cross_pairs) {
-    stats::cor(a_src[valid_ab], b_nbr[valid_ab], method = "pearson")
-  } else {
-    NA_real_
-  }
-
-  r_ba <- if (sum(valid_ba) >= min_cross_pairs) {
-    stats::cor(b_src[valid_ba], a_nbr[valid_ba], method = "pearson")
-  } else {
-    NA_real_
-  }
-
-  # Composite score
-  score <- if (!is.na(r_ab) && !is.na(r_ba) && abs(r_ab) > 0 && abs(r_ba) > 0) {
-    sqrt(abs(r_ab) * abs(r_ba))
-  } else if (!is.na(r_ab) && !is.na(r_ba)) {
-    0
-  } else {
-    NA_real_
-  }
-
-  # --- Per cell-type pair breakdown ---
-  src_type <- cl_int[src_cells]
-  nbr_type <- cl_int[nbr_cells]
-  pair_key <- paste0(src_type, "->", nbr_type)
-  unique_keys <- unique(pair_key)
-
+  # --- Per cell-type pair results ---
   ct_results <- data.frame(
     source_type     = character(0),
     neighbour_type  = character(0),
-    n_pairs         = integer(0),
+    n_bins_valid    = integer(0),
     r_g1_to_g2      = numeric(0),
+    r_g2_to_g1      = numeric(0),
     stringsAsFactors = FALSE
   )
 
-  for (uk in unique_keys) {
-    mask <- pair_key == uk
-    n_k <- sum(mask)
-    if (n_k < max(10, min_cross_pairs %/% 3)) next
+  r_ab_vals <- numeric(0)
+  r_ba_vals <- numeric(0)
+  w_ab <- numeric(0)
+  w_ba <- numeric(0)
 
-    parts <- strsplit(uk, "->")[[1]]
-    s_type <- cl_levels[as.integer(parts[1])]
-    n_type <- cl_levels[as.integer(parts[2])]
+  for (ti in seq_along(cl_levels)) {
+    for (tj in seq_along(cl_levels)) {
+      if (ti == tj) next
 
-    r_k <- tryCatch(
-      stats::cor(x[src_cells[mask]], y[nbr_cells[mask]], method = "pearson"),
-      error = function(e) NA_real_
-    )
+      valid_bins <- which(n_cells_tb[ti, ] >= min_cells_per_bin &
+                          n_cells_tb[tj, ] >= min_cells_per_bin)
+      n_valid <- length(valid_bins)
+      if (n_valid < min_bins) next
 
-    ct_results <- rbind(ct_results, data.frame(
-      source_type    = s_type,
-      neighbour_type = n_type,
-      n_pairs        = n_k,
-      r_g1_to_g2     = r_k,
-      stringsAsFactors = FALSE
-    ))
+      # A->B: gene1 in type_i, gene2 in type_j
+      xi <- pb_x[ti, valid_bins]
+      yj <- pb_y[tj, valid_bins]
+
+      # B->A: gene2 in type_i, gene1 in type_j
+      yi <- pb_y[ti, valid_bins]
+      xj <- pb_x[tj, valid_bins]
+
+      sd_xi <- stats::sd(xi, na.rm = TRUE)
+      sd_yj <- stats::sd(yj, na.rm = TRUE)
+      r_ab_k <- if (!is.na(sd_xi) && !is.na(sd_yj) &&
+                     sd_xi > 1e-10 && sd_yj > 1e-10) {
+        stats::cor(xi, yj, use = "pairwise.complete.obs")
+      } else {
+        NA_real_
+      }
+
+      sd_yi <- stats::sd(yi, na.rm = TRUE)
+      sd_xj <- stats::sd(xj, na.rm = TRUE)
+      r_ba_k <- if (!is.na(sd_yi) && !is.na(sd_xj) &&
+                     sd_yi > 1e-10 && sd_xj > 1e-10) {
+        stats::cor(yi, xj, use = "pairwise.complete.obs")
+      } else {
+        NA_real_
+      }
+
+      ct_results <- rbind(ct_results, data.frame(
+        source_type    = cl_levels[ti],
+        neighbour_type = cl_levels[tj],
+        n_bins_valid   = n_valid,
+        r_g1_to_g2     = r_ab_k,
+        r_g2_to_g1     = r_ba_k,
+        stringsAsFactors = FALSE
+      ))
+
+      if (!is.na(r_ab_k)) {
+        r_ab_vals <- c(r_ab_vals, r_ab_k)
+        w_ab <- c(w_ab, n_valid)
+      }
+      if (!is.na(r_ba_k)) {
+        r_ba_vals <- c(r_ba_vals, r_ba_k)
+        w_ba <- c(w_ba, n_valid)
+      }
+    }
+  }
+
+  if (length(r_ab_vals) == 0 || length(r_ba_vals) == 0) return(empty_result)
+
+  agg_ab <- stats::weighted.mean(r_ab_vals, w_ab)
+  agg_ba <- stats::weighted.mean(r_ba_vals, w_ba)
+
+  score <- if (abs(agg_ab) > 0 && abs(agg_ba) > 0) {
+    sqrt(abs(agg_ab) * abs(agg_ba))
+  } else {
+    0
   }
 
   list(
-    score            = score,
-    r_ab             = r_ab,
-    r_ba             = r_ba,
-    n_cross_pairs    = n_cross,
+    score             = score,
+    r_ab              = agg_ab,
+    r_ba              = agg_ba,
+    n_type_pairs      = nrow(ct_results),
     per_celltype_pair = ct_results
   )
 }

@@ -4,32 +4,50 @@
 \alias{.cross_celltype}
 \title{Cross-cell-type interaction score for a single gene pair}
 \usage{
-.cross_celltype(x, y, W, cluster_ids, min_cross_pairs = 30)
+.cross_celltype(
+  x,
+  y,
+  cluster_ids,
+  embed,
+  n_bins = 50,
+  min_cells_per_bin = 5,
+  min_bins = 8
+)
 }
 \arguments{
 \item{x}{Numeric vector; expression of gene1 (length n_cells).}
 
 \item{y}{Numeric vector; expression of gene2 (length n_cells).}
 
-\item{W}{Sparse KNN weight matrix (n_cells x n_cells).}
+\item{cluster_ids}{Factor of cluster / cell-type assignments.}
 
-\item{cluster_ids}{Factor/integer of cluster assignments.}
+\item{embed}{Numeric matrix of PCA embedding (n_cells x n_dims).}
 
-\item{min_cross_pairs}{Minimum cross-type pairs for correlation.}
+\item{n_bins}{Integer; number of micro-environment bins.  Default 50.}
+
+\item{min_cells_per_bin}{Integer; minimum cells of a type per bin.
+Default 5.}
+
+\item{min_bins}{Integer; minimum valid bins per type pair.  Default 8.}
 }
 \value{
 A list with components:
 \describe{
-\item{\code{score}}{Geometric mean of |r(A->B)| and |r(B->A)|.}
-\item{\code{r_ab}}{Pearson r for gene1 in source -> gene2 in neighbour.}
-\item{\code{r_ba}}{Pearson r for gene2 in source -> gene1 in neighbour.}
-\item{\code{n_cross_pairs}}{Number of cross-type neighbour pairs used.}
-\item{\code{per_celltype_pair}}{data.frame of per-celltype-pair results
-(only for the single-pair function).}
+\item{\code{score}}{Geometric mean of |agg_r(A->B)| and |agg_r(B->A)|.}
+\item{\code{r_ab}}{Weighted mean r for gene1-in-source, gene2-in-neighbour.}
+\item{\code{r_ba}}{Weighted mean r for gene2-in-source, gene1-in-neighbour.}
+\item{\code{n_type_pairs}}{Number of cell-type pairs contributing.}
+\item{\code{per_celltype_pair}}{data.frame with per-type-pair breakdown.}
 }
 }
 \description{
 Measures whether gene A expressed in one cell type correlates with gene B
-expressed in neighbouring cells of a different type.
+expressed in a different cell type sharing the same tissue micro-environment.
+}
+\details{
+Unlike the KNN-graph-based approach, this method does \strong{not} require
+cells of different types to be neighbours in PCA/UMAP space.  Instead,
+it partitions cells into micro-environment bins (using k-means on the
+embedding) and computes pseudo-bulk correlations across bins.
 }
 \keyword{internal}

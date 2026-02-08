@@ -177,8 +177,15 @@ FindAllPairs <- function(object,
       pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
 
       .msg("  Cross-cell-type interaction score ...", verbose = verbose)
-      pair_dt[, cross_celltype_score := .cross_celltype_batch(
-        mat, pair_dt, W, cluster_ids)]
+      embed <- tryCatch(
+        Seurat::Embeddings(object, reduction = neighbourhood_reduction),
+        error = function(e) NULL
+      )
+      if (!is.null(embed)) {
+        dims_use <- seq_len(min(30, ncol(embed)))
+        pair_dt[, cross_celltype_score := .cross_celltype_batch(
+          mat, pair_dt, cluster_ids, embed[, dims_use, drop = FALSE])]
+      }
     }
   }
 
