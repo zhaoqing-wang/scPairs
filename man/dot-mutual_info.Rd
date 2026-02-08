@@ -15,6 +15,6 @@
 Scalar MI in nats.
 }
 \description{
-Plug-in mutual information estimator with equal-frequency binning
+Single-pair version retained for \code{AssessGenePair()}.
 }
 \keyword{internal}

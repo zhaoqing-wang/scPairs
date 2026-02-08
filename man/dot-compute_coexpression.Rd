@@ -48,6 +48,14 @@ consistency across cell clusters.  Designed for speed: uses vectorised
 matrix algebra where possible and avoids per-pair loops for correlation.
 }
 \details{
+\strong{Performance (v0.1.1):} Co-expression filtering, biweight midcorrelation,
+mutual information, and ratio consistency are all vectorised where possible.
+The co-expression filter uses a single matrix crossproduct instead of
+per-pair loops.  Biweight midcorrelation uses a fast vectorised
+implementation that processes all pairs at once via matrix operations.
+Mutual information uses pre-computed bin matrices.
+Ratio consistency is vectorised over clusters using matrix operations.
+
 \strong{Biweight midcorrelation} (Langfelder & Horvath, 2012) is a robust
 alternative to Pearson correlation that down-weights outlier observations,
 which is particularly valuable for noisy single-cell data.

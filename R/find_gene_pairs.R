@@ -6,6 +6,14 @@
 #' framework as [FindAllPairs()] but focuses computation on pairs involving the
 #' query gene, making it much faster for targeted queries.
 #'
+#' @details
+#' **Performance (v0.1.1):** Pearson and Spearman correlations for the query
+#' gene against all candidates are computed via a single vectorised matrix
+#' multiply instead of per-candidate loops.  The co-expression filter uses
+#' a vectorised matrix operation.  Biweight midcorrelation, mutual information,
+#' and ratio consistency are computed using batch-optimised helpers where
+#' possible.
+#'
 #' @param object A Seurat object.
 #' @param gene Character; the query gene name.
 #' @param candidates Character vector of candidate partner genes.  NULL =
@@ -76,7 +84,7 @@ FindGenePairs <- function(object,
 
   # Select candidates
   candidates <- .select_features(object, candidates, n_top = n_top_genes, assay = assay)
-  candidates <- setdiff(candidates, gene)  # exclude self
+  candidates <- setdiff(candidates, gene)
   if (length(candidates) == 0) {
     stop("No candidate partner genes available.", call. = FALSE)
   }
@@ -113,11 +121,15 @@ FindGenePairs <- function(object,
   n_cells <- ncol(mat_dense)
   gene_vec <- mat_dense[gene, ]
 
-  # --- Filter by co-expression ---
+  # --- Filter by co-expression (vectorised) ---
   if (min_cells_expressed > 0) {
-    co_expr <- vapply(candidates, function(g2) {
-      sum(gene_vec > 0 & mat_dense[g2, ] > 0)
-    }, integer(1))
+    gene_nonzero <- gene_vec > 0
+    # Count co-expression for all candidates at once
+    cand_mat <- mat_dense[candidates, , drop = FALSE]
+    cand_nonzero <- cand_mat > 0
+    storage.mode(cand_nonzero) <- "double"
+    storage.mode(gene_nonzero) <- "double"
+    co_expr <- as.numeric(cand_nonzero %*% gene_nonzero)
     keep <- co_expr >= min_cells_expressed
     pair_dt <- pair_dt[keep, ]
     candidates <- candidates[keep]
@@ -127,41 +139,50 @@ FindGenePairs <- function(object,
       warning("No pairs passed the co-expression filter.", call. = FALSE)
       return(.build_gene_result(pair_dt, gene, candidates, object, FALSE, list()))
     }
+    cand_mat <- cand_mat[candidates, , drop = FALSE]
+  } else {
+    cand_mat <- mat_dense[candidates, , drop = FALSE]
   }
 
-  # --- Pearson ---
+  n_cand <- length(candidates)
+
+  # --- Pearson (vectorised: cor(gene_vec, cand_mat_t)) ---
   if ("pearson" %in% cor_method) {
-    pair_dt[, cor_pearson := vapply(pair_dt$gene2, function(g2) {
-      stats::cor(gene_vec, mat_dense[g2, ], method = "pearson")
-    }, numeric(1))]
+    .msg("  Pearson correlation ...", verbose = verbose)
+    cor_vals <- as.numeric(stats::cor(gene_vec, t(cand_mat)))
+    pair_dt[, cor_pearson := cor_vals]
   }
 
-  # --- Spearman ---
+  # --- Spearman (vectorised via ranks) ---
   if ("spearman" %in% cor_method) {
+    .msg("  Spearman correlation ...", verbose = verbose)
     gene_rank <- rank(gene_vec)
-    pair_dt[, cor_spearman := vapply(pair_dt$gene2, function(g2) {
-      stats::cor(gene_rank, rank(mat_dense[g2, ]), method = "pearson")
-    }, numeric(1))]
+    cand_ranks <- t(apply(cand_mat, 1, rank))
+    cor_sp <- as.numeric(stats::cor(gene_rank, t(cand_ranks)))
+    pair_dt[, cor_spearman := cor_sp]
   }
 
-  # --- Biweight ---
+  # --- Biweight (per-candidate, using fast .bicor) ---
   if ("biweight" %in% cor_method) {
-    pair_dt[, cor_biweight := vapply(pair_dt$gene2, function(g2) {
-      .bicor(gene_vec, mat_dense[g2, ])
+    .msg("  Biweight midcorrelation ...", verbose = verbose)
+    pair_dt[, cor_biweight := vapply(seq_len(n_cand), function(k) {
+      .bicor(gene_vec, cand_mat[k, ])
     }, numeric(1))]
   }
 
   # --- Mutual information ---
   if (n_mi_bins > 0) {
-    pair_dt[, mi_score := vapply(pair_dt$gene2, function(g2) {
-      .mutual_info(gene_vec, mat_dense[g2, ], n_bins = n_mi_bins)
+    .msg("  Mutual information ...", verbose = verbose)
+    pair_dt[, mi_score := vapply(seq_len(n_cand), function(k) {
+      .mutual_info(gene_vec, cand_mat[k, ], n_bins = n_mi_bins)
     }, numeric(1))]
   }
 
   # --- Ratio consistency ---
   if (!is.null(cluster_ids)) {
-    pair_dt[, ratio_consistency := vapply(pair_dt$gene2, function(g2) {
-      .ratio_consistency(gene_vec, mat_dense[g2, ], cluster_ids)
+    .msg("  Ratio consistency ...", verbose = verbose)
+    pair_dt[, ratio_consistency := vapply(seq_len(n_cand), function(k) {
+      .ratio_consistency(gene_vec, cand_mat[k, ], cluster_ids)
     }, numeric(1))]
   }
 

@@ -74,6 +74,14 @@ that act synergistically with it.  The function uses the same multi-evidence
 framework as \code{\link[=FindAllPairs]{FindAllPairs()}} but focuses computation on pairs involving the
 query gene, making it much faster for targeted queries.
 }
+\details{
+\strong{Performance (v0.1.1):} Pearson and Spearman correlations for the query
+gene against all candidates are computed via a single vectorised matrix
+multiply instead of per-candidate loops.  The co-expression filter uses
+a vectorised matrix operation.  Biweight midcorrelation, mutual information,
+and ratio consistency are computed using batch-optimised helpers where
+possible.
+}
 \examples{
 \dontrun{
 # Find top 20 partners for TP53

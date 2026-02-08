@@ -21,6 +21,13 @@
 #'     optionally `spatial_lee_p`.
 #'
 #' @details
+#' **Performance (v0.1.1):** The spatial lag is computed via sparse matrix
+#' multiplication (\code{W \%*\% t(mat)}) for all genes at once, replacing the
+#' previous per-pair R-level loop.  Lee's L for all pairs is then computed via
+#' vectorised column inner products.  Permutation testing is similarly
+#' vectorised: the entire gene expression matrix is permuted and all pairs
+#' evaluated per permutation.
+#'
 #' **Lee's L statistic** is defined as:
 #' \deqn{L(x,y) = \frac{n}{S_0} \cdot \frac{(Wx)^\top (Wy)}{(\sum x_i^2)^{1/2} (\sum y_i^2)^{1/2}}}
 #' where W is a row-standardised spatial weight matrix and S_0 = n (under
@@ -67,70 +74,96 @@
   k_use <- min(k, n - 1)
   if (requireNamespace("RANN", quietly = TRUE)) {
     nn <- RANN::nn2(as.matrix(coords[, c("x", "y")]), k = k_use + 1)
-    nn_idx <- nn$nn.idx[, -1, drop = FALSE]  # exclude self
+    nn_idx <- nn$nn.idx[, -1, drop = FALSE]
   } else {
-    # Fallback: brute-force KNN
     dist_mat <- as.matrix(stats::dist(coords[, c("x", "y")]))
     nn_idx <- t(apply(dist_mat, 1, function(row) {
       order(row)[2:(k_use + 1)]
     }))
   }
 
-  # Build row-standardised weight matrix (sparse-like via list)
-  # W[i,] = 1/k for each neighbour j, 0 otherwise
-  # Wx = for each cell i, mean expression of its neighbours
-  .spatial_lag <- function(vec) {
-    lag_vec <- numeric(n)
-    for (i in seq_len(n)) {
-      lag_vec[i] <- mean(vec[nn_idx[i, ]])
-    }
-    lag_vec
-  }
+  # --- Build sparse row-standardised weight matrix ---------------------------
+  # W[i,j] = 1/k for each neighbour j of cell i
+  row_i <- rep(seq_len(n), each = k_use)
+  col_j <- as.integer(t(nn_idx))
+  vals  <- rep(1 / k_use, length(row_i))
+  W <- Matrix::sparseMatrix(i = row_i, j = col_j, x = vals,
+                            dims = c(n, n))
 
-  .lee_L <- function(x_vec, y_vec) {
-    # Centre
-    x_c <- x_vec - mean(x_vec)
-    y_c <- y_vec - mean(y_vec)
-    Wx <- .spatial_lag(x_c)
-    Wy <- .spatial_lag(y_c)
-    denom <- sqrt(sum(x_c^2)) * sqrt(sum(y_c^2))
-    if (denom < .Machine$double.eps) return(0)
-    n * sum(Wx * Wy) / (n * denom)
-  }
+  # --- Vectorised Lee's L computation for all pairs at once -----------------
+  # Centre each gene across cells
+  gene_means <- rowMeans(mat)
+  mat_c <- mat - gene_means  # centred (genes × cells)
+
+  # Spatial lag for all genes: Wx = W %*% t(mat_c) → cells × genes
+  # Then transpose to get genes × cells
+  Wmat <- t(as.matrix(W %*% t(mat_c)))  # genes × cells
+
+  # Denominator: sqrt(sum(x_c^2)) for each gene
+  gene_norms <- sqrt(rowSums(mat_c^2))
+  gene_norms[gene_norms < .Machine$double.eps] <- 1
 
   n_pairs <- nrow(pair_dt)
   .msg("Computing Lee's L for ", n_pairs, " gene pairs ...", verbose = verbose)
 
-  # Observed Lee's L
-  lee_vals <- vapply(seq_len(n_pairs), function(k_i) {
-    g1 <- pair_dt$gene1[k_i]
-    g2 <- pair_dt$gene2[k_i]
-    if (!(g1 %in% rownames(mat)) || !(g2 %in% rownames(mat))) return(NA_real_)
-    .lee_L(mat[g1, ], mat[g2, ])
-  }, numeric(1))
+  # Map gene names to row indices
+  gene_idx <- stats::setNames(seq_len(nrow(mat)), rownames(mat))
+
+  # Compute Lee's L for all pairs using vectorised inner products
+  g1_idx <- gene_idx[pair_dt$gene1]
+  g2_idx <- gene_idx[pair_dt$gene2]
+
+  # Check for missing genes
+  valid <- !is.na(g1_idx) & !is.na(g2_idx)
+
+  lee_vals <- rep(NA_real_, n_pairs)
+  if (any(valid)) {
+    # Batch compute: L = n * sum(Wx * Wy) / (n * ||x|| * ||y||)
+    #               = sum(Wx * Wy) / (||x|| * ||y||)
+    # Use column-wise operations on the index vectors
+    vi <- g1_idx[valid]
+    vj <- g2_idx[valid]
+    # For each valid pair, compute sum of element-wise product of spatial lags
+    # Vectorised via rowSums on indexed matrices
+    Wx_mat <- Wmat[vi, , drop = FALSE]  # n_valid × cells
+    Wy_mat <- Wmat[vj, , drop = FALSE]  # n_valid × cells
+    numerator <- rowSums(Wx_mat * Wy_mat)
+    denominator <- gene_norms[vi] * gene_norms[vj]
+    lee_vals[valid] <- numerator / denominator
+  }
 
   pair_dt[, spatial_lee_L := lee_vals]
 
-  # Permutation p-values
+  # --- Permutation p-values (vectorised) ------------------------------------
   if (n_perm > 0) {
     .msg("Permutation test (", n_perm, " permutations) ...", verbose = verbose)
-    pvals <- vapply(seq_len(n_pairs), function(k_i) {
-      if (is.na(lee_vals[k_i])) return(NA_real_)
-      g1 <- pair_dt$gene1[k_i]
-      g2 <- pair_dt$gene2[k_i]
-      x_vec <- mat[g1, ]
-      y_vec <- mat[g2, ]
-      obs <- lee_vals[k_i]
 
-      null_dist <- vapply(seq_len(n_perm), function(p) {
-        .lee_L(x_vec, sample(y_vec))
-      }, numeric(1))
+    valid_idx <- which(valid)
+    n_valid <- length(valid_idx)
+    if (n_valid > 0) {
+      null_counts <- integer(n_valid)
+      obs_abs <- abs(lee_vals[valid_idx])
 
-      # Two-sided pseudo p-value
-      (sum(abs(null_dist) >= abs(obs)) + 1) / (n_perm + 1)
-    }, numeric(1))
+      for (p in seq_len(n_perm)) {
+        # Permute cell order for one variable (gene2 only, more efficient)
+        perm <- sample(n)
+        mat_c_perm <- mat_c[, perm, drop = FALSE]
+        Wmat_perm <- t(as.matrix(W %*% t(mat_c_perm)))
 
-    pair_dt[, spatial_lee_p := pvals]
+        # Recompute Lee's L for all valid pairs
+        Wy_perm <- Wmat_perm[vj, , drop = FALSE]
+        numer_perm <- rowSums(Wx_mat * Wy_perm)
+        # Denominator uses original norms (permuting doesn't change norms)
+        lee_perm <- numer_perm / denominator
+        null_counts <- null_counts + as.integer(abs(lee_perm) >= obs_abs)
+      }
+
+      pvals <- rep(NA_real_, n_pairs)
+      pvals[valid_idx] <- (null_counts + 1) / (n_perm + 1)
+      pair_dt[, spatial_lee_p := pvals]
+    } else {
+      pair_dt[, spatial_lee_p := NA_real_]
+    }
   }
 
   pair_dt

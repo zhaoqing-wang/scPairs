@@ -23,12 +23,18 @@
 #' @param verbose Logical.
 #'
 #' @return `pair_dt` with added columns:
-#'   * `synergy_score` – composite score in \[0, 1\].
-#'   * `p_value` – permutation-based p-value (if `n_perm > 0`).
-#'   * `p_adj` – BH-adjusted p-value.
-#'   * `rank` – rank by synergy score (1 = strongest).
-#'   * `confidence` – categorical label: "High" (p_adj < 0.01),
+#'   * `synergy_score` -- composite score in \[0, 1\].
+#'   * `p_value` -- permutation-based p-value (if `n_perm > 0`).
+#'   * `p_adj` -- BH-adjusted p-value.
+#'   * `rank` -- rank by synergy score (1 = strongest).
+#'   * `confidence` -- categorical label: "High" (p_adj < 0.01),
 #'     "Medium" (< 0.05), "Low" (< 0.1), "NS" otherwise.
+#'
+#' @details
+#' **Performance (v0.1.1):** Permutation testing now reuses the vectorised
+#' co-expression and spatial pipelines.  P-values are computed via a single
+#' vectorised comparison instead of per-pair vapply.  The null score matrix
+#' uses \code{colSums(null >= observed)} for batch comparison.
 #'
 #' @keywords internal
 .integrate_scores <- function(pair_dt,
@@ -56,7 +62,6 @@
   if (is.null(weights)) {
     weights <- default_w
   } else {
-    # Fill in any missing weights from defaults
     for (nm in names(default_w)) {
       if (!(nm %in% names(weights))) weights[nm] <- default_w[nm]
     }
@@ -81,10 +86,6 @@
        paste(metric_cols, collapse = ", "), verbose = verbose)
 
   # --- Rank-normalise each metric to [0, 1] --------------------------------
-  # For correlations / Lee's L, higher absolute value = stronger; use absolute
-  # value for rank normalisation.  For CLQ, higher = stronger co-location.
-  # For MI, higher = more dependent.
-
   abs_metrics <- c("cor_pearson", "cor_spearman", "cor_biweight", "spatial_lee_L")
   raw_metrics <- c("mi_score", "ratio_consistency", "spatial_clq")
 
@@ -102,7 +103,7 @@
 
   # --- Weighted combination ------------------------------------------------
   w_vec <- weights[metric_cols]
-  w_vec <- w_vec / sum(w_vec)  # normalise to sum = 1
+  w_vec <- w_vec / sum(w_vec)
 
   score <- rep(0, nrow(normed))
   for (col in metric_cols) {
@@ -113,7 +114,7 @@
 
   pair_dt[, synergy_score := score]
 
-  # --- Permutation p-values (optional) -------------------------------------
+  # --- Permutation p-values (optimised) ------------------------------------
   if (n_perm > 0 && !is.null(mat)) {
     .msg("Permutation test for composite score (", n_perm, " permutations) ...",
          verbose = verbose)
@@ -121,7 +122,9 @@
     features <- unique(c(pair_dt$gene1, pair_dt$gene2))
     features <- intersect(features, rownames(mat))
 
-    null_scores <- matrix(0, nrow = nrow(pair_dt), ncol = n_perm)
+    n_pairs_dt <- nrow(pair_dt)
+    null_ge_count <- integer(n_pairs_dt)
+    obs_scores <- pair_dt$synergy_score
 
     for (p in seq_len(n_perm)) {
       # Permute cell labels (columns)
@@ -153,14 +156,13 @@
         vals_normed[is.na(vals_normed)] <- 0
         perm_score <- perm_score + w_vec[col] * vals_normed
       }
-      null_scores[, p] <- perm_score
+
+      # Vectorised comparison: count how many null >= observed
+      null_ge_count <- null_ge_count + as.integer(perm_score >= obs_scores)
     }
 
-    # Empirical p-value
-    obs <- pair_dt$synergy_score
-    pvals <- vapply(seq_len(nrow(pair_dt)), function(i) {
-      (sum(null_scores[i, ] >= obs[i]) + 1) / (n_perm + 1)
-    }, numeric(1))
+    # Empirical p-value (vectorised)
+    pvals <- (null_ge_count + 1) / (n_perm + 1)
 
     pair_dt[, p_value := pvals]
     pair_dt[, p_adj := stats::p.adjust(pvals, method = "BH")]
@@ -176,7 +178,6 @@
              ifelse(p_adj < 0.1, "Low", "NS"))
     )]
   } else {
-    # Without permutation test, use top-percentile heuristic
     pair_dt[, confidence := ifelse(
       synergy_score >= stats::quantile(synergy_score, 0.95, na.rm = TRUE), "High",
       ifelse(synergy_score >= stats::quantile(synergy_score, 0.80, na.rm = TRUE), "Medium",

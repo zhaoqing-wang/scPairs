@@ -1,5 +1,6 @@
 #' @importFrom data.table := data.table frank setorder setnames
-#' @importFrom stats cor median sd var quantile
+#' @importFrom stats cor median sd var quantile setNames
+#' @importFrom Matrix sparseMatrix t
 NULL
 
 utils::globalVariables(

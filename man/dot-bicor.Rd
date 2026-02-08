@@ -14,5 +14,6 @@ Scalar biweight midcorrelation.
 }
 \description{
 Implements the Tukey biweight robust correlation (Langfelder & Horvath 2012).
+Retained for single-pair computation in \code{AssessGenePair()}.
 }
 \keyword{internal}

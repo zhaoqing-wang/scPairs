@@ -15,6 +15,7 @@
 Scalar in [0, 1].
 }
 \description{
+Single-pair version retained for \code{AssessGenePair()}.
 For each cluster, computes the median log2(expr_g1 + 1) - log2(expr_g2 + 1).
 Returns 1 - CoV of cluster medians, bounded to [0, 1].
 }

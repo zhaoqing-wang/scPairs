@@ -24,6 +24,11 @@
 #' normalised expression exceeds `expr_threshold` (default: 0, i.e. any
 #' non-zero count).
 #'
+#' **Performance (v0.1.1):** The neighbour expression counts are computed via
+#' matrix multiplication.  For each gene, the binary expression vector is
+#' multiplied against the neighbour indicator matrix to get per-cell counts of
+#' expressing neighbours, replacing the previous nested vapply loops.
+#'
 #' @param coords Data.frame with `x`, `y` columns, rownames = cell barcodes.
 #' @param mat Expression matrix (genes x cells).
 #' @param pair_dt `data.table` with columns `gene1`, `gene2`.
@@ -76,37 +81,72 @@
 
   .msg("Computing CLQ for ", nrow(pair_dt), " pairs ...", verbose = verbose)
 
-  clq_vals <- vapply(seq_len(nrow(pair_dt)), function(pi) {
+  # --- Build sparse neighbour indicator matrix (n × n) ----------------------
+  # N[i,j] = 1 if j is a neighbour of i
+  row_i <- rep(seq_len(n), each = k_use)
+  col_j <- as.integer(t(nn_idx))
+  N_sparse <- Matrix::sparseMatrix(i = row_i, j = col_j, x = 1,
+                                   dims = c(n, n))
+
+  # Map gene names to row indices
+  gene_idx <- stats::setNames(seq_len(nrow(mat)), rownames(mat))
+
+  # Pre-compute binary expression for all genes in pair_dt
+  unique_genes <- unique(c(pair_dt$gene1, pair_dt$gene2))
+  unique_genes <- intersect(unique_genes, rownames(mat))
+
+  # Binary expression matrix (genes × cells): TRUE if expressed
+  expr_binary <- mat[unique_genes, , drop = FALSE] > expr_threshold
+  storage.mode(expr_binary) <- "double"
+
+  # Neighbour expression counts for all genes at once:
+  # For each gene g and cell i, count how many neighbours of i express g
+  # = expr_binary %*% t(N_sparse) → genes × cells
+  # But N_sparse is cells × cells, so:
+  # neigh_counts[g, i] = sum_{j in N(i)} expr_binary[g, j]
+  # = (expr_binary %*% t(N_sparse))[g, i]
+  neigh_counts <- as.matrix(expr_binary %*% Matrix::t(N_sparse))
+
+  # Global expression counts per gene
+  n_expr <- rowSums(expr_binary)
+
+  # Gene name to row index in expr_binary
+  expr_idx <- stats::setNames(seq_along(unique_genes), unique_genes)
+
+  n_pairs <- nrow(pair_dt)
+  clq_vals <- numeric(n_pairs)
+
+  for (pi in seq_len(n_pairs)) {
     g1 <- pair_dt$gene1[pi]
     g2 <- pair_dt$gene2[pi]
-    if (!(g1 %in% rownames(mat)) || !(g2 %in% rownames(mat))) return(NA_real_)
+    if (!(g1 %in% unique_genes) || !(g2 %in% unique_genes)) {
+      clq_vals[pi] <- NA_real_
+      next
+    }
 
-    expr_a <- mat[g1, ] > expr_threshold
-    expr_b <- mat[g2, ] > expr_threshold
+    idx_a <- expr_idx[g1]
+    idx_b <- expr_idx[g2]
+    n_a <- n_expr[idx_a]
+    n_b <- n_expr[idx_b]
 
-    n_a <- sum(expr_a)
-    n_b <- sum(expr_b)
-    if (n_a == 0 || n_b == 0) return(NA_real_)
+    if (n_a == 0 || n_b == 0) {
+      clq_vals[pi] <- NA_real_
+      next
+    }
 
-    # CLQ A->B
-    cells_a <- which(expr_a)
     prop_global_b <- n_b / n
-    if (prop_global_b == 0) return(NA_real_)
-    clq_ab <- mean(vapply(cells_a, function(i) {
-      (sum(expr_b[nn_idx[i, ]]) / k_use) / prop_global_b
-    }, numeric(1)))
-
-    # CLQ B->A
-    cells_b <- which(expr_b)
     prop_global_a <- n_a / n
-    if (prop_global_a == 0) return(NA_real_)
-    clq_ba <- mean(vapply(cells_b, function(i) {
-      (sum(expr_a[nn_idx[i, ]]) / k_use) / prop_global_a
-    }, numeric(1)))
 
-    # Symmetric CLQ = geometric mean
-    sqrt(clq_ab * clq_ba)
-  }, numeric(1))
+    # CLQ A→B: for cells expressing A, mean(neighbour_B_count / k) / prop_global_B
+    cells_a <- which(expr_binary[idx_a, ] > 0)
+    clq_ab <- mean(neigh_counts[idx_b, cells_a] / k_use) / prop_global_b
+
+    # CLQ B→A: for cells expressing B, mean(neighbour_A_count / k) / prop_global_A
+    cells_b <- which(expr_binary[idx_b, ] > 0)
+    clq_ba <- mean(neigh_counts[idx_a, cells_b] / k_use) / prop_global_a
+
+    clq_vals[pi] <- sqrt(clq_ab * clq_ba)
+  }
 
   pair_dt[, spatial_clq := clq_vals]
   pair_dt

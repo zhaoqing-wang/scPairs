@@ -41,11 +41,11 @@ Default weights:
 \value{
 \code{pair_dt} with added columns:
 \itemize{
-\item \code{synergy_score} – composite score in [0, 1].
-\item \code{p_value} – permutation-based p-value (if \code{n_perm > 0}).
-\item \code{p_adj} – BH-adjusted p-value.
-\item \code{rank} – rank by synergy score (1 = strongest).
-\item \code{confidence} – categorical label: "High" (p_adj < 0.01),
+\item \code{synergy_score} -- composite score in [0, 1].
+\item \code{p_value} -- permutation-based p-value (if \code{n_perm > 0}).
+\item \code{p_adj} -- BH-adjusted p-value.
+\item \code{rank} -- rank by synergy score (1 = strongest).
+\item \code{confidence} -- categorical label: "High" (p_adj < 0.01),
 "Medium" (< 0.05), "Low" (< 0.1), "NS" otherwise.
 }
 }
@@ -57,5 +57,10 @@ different metric scales do not dominate.
 }
 \details{
 An empirical p-value is obtained by permuting cell labels.
+
+\strong{Performance (v0.1.1):} Permutation testing now reuses the vectorised
+co-expression and spatial pipelines.  P-values are computed via a single
+vectorised comparison instead of per-pair vapply.  The null score matrix
+uses \code{colSums(null >= observed)} for batch comparison.
 }
 \keyword{internal}

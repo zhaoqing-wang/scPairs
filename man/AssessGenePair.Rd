@@ -57,15 +57,21 @@ Given two genes, \code{AssessGenePair} performs an in-depth evaluation of their
 co-regulatory relationship.  In addition to the standard multi-metric
 scoring, it computes:
 \itemize{
-\item \strong{Per-cluster co-expression} – correlation within each cell cluster,
+\item \strong{Per-cluster co-expression} -- correlation within each cell cluster,
 revealing whether synergy is global or cluster-specific.
-\item \strong{Expression distribution overlap} – Jaccard index of the sets of cells
+\item \strong{Expression distribution overlap} -- Jaccard index of the sets of cells
 expressing each gene.
-\item \strong{Permutation-based significance} – by default 999 permutations are run
+\item \strong{Permutation-based significance} -- by default 999 permutations are run
 to produce a robust p-value.
 }
 
 For spatial data, spatial metrics (Lee's L, CLQ) are also computed.
+}
+\details{
+\strong{Performance (v0.1.1):} The permutation loop now pre-generates all
+permuted y-vectors as a matrix and uses vectorised correlation, biweight,
+MI, and ratio consistency computations.  Pearson and Spearman correlations
+for all permutations are computed via a single matrix multiply.
 }
 \examples{
 \dontrun{

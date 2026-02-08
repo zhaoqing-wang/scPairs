@@ -35,6 +35,13 @@ a negative L indicates spatial segregation.
 For efficiency, a k-nearest-neighbour spatial weights matrix is used rather
 than a full distance matrix.
 
+\strong{Performance (v0.1.1):} The spatial lag is computed via sparse matrix
+multiplication (\code{W \%*\% t(mat)}) for all genes at once, replacing the
+previous per-pair R-level loop.  Lee's L for all pairs is then computed via
+vectorised column inner products.  Permutation testing is similarly
+vectorised: the entire gene expression matrix is permuted and all pairs
+evaluated per permutation.
+
 \strong{Lee's L statistic} is defined as:
 \deqn{L(x,y) = \frac{n}{S_0} \cdot \frac{(Wx)^\top (Wy)}{(\sum x_i^2)^{1/2} (\sum y_i^2)^{1/2}}}
 where W is a row-standardised spatial weight matrix and S_0 = n (under

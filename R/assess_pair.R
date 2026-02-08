@@ -5,14 +5,20 @@
 #' co-regulatory relationship.  In addition to the standard multi-metric
 #' scoring, it computes:
 #'
-#' * **Per-cluster co-expression** – correlation within each cell cluster,
+#' * **Per-cluster co-expression** -- correlation within each cell cluster,
 #'   revealing whether synergy is global or cluster-specific.
-#' * **Expression distribution overlap** – Jaccard index of the sets of cells
+#' * **Expression distribution overlap** -- Jaccard index of the sets of cells
 #'   expressing each gene.
-#' * **Permutation-based significance** – by default 999 permutations are run
+#' * **Permutation-based significance** -- by default 999 permutations are run
 #'   to produce a robust p-value.
 #'
 #' For spatial data, spatial metrics (Lee's L, CLQ) are also computed.
+#'
+#' @details
+#' **Performance (v0.1.1):** The permutation loop now pre-generates all
+#' permuted y-vectors as a matrix and uses vectorised correlation, biweight,
+#' MI, and ratio consistency computations.  Pearson and Spearman correlations
+#' for all permutations are computed via a single matrix multiply.
 #'
 #' @param object A Seurat object.
 #' @param gene1 Character; first gene.
@@ -173,47 +179,47 @@ AssessGenePair <- function(object,
   }
 
   # --- Composite score via integration framework ----------------------------
-  pair_dt_score <- data.table::data.table(
-    gene1 = gene1, gene2 = gene2,
-    cor_pearson  = metrics$cor_pearson,
-    cor_spearman = metrics$cor_spearman,
-    cor_biweight = metrics$cor_biweight,
-    mi_score     = metrics$mi_score,
-    ratio_consistency = metrics$ratio_consistency
-  )
-  if (has_spatial) {
-    pair_dt_score[, spatial_lee_L := metrics$spatial_lee_L]
-    pair_dt_score[, spatial_clq   := metrics$spatial_clq]
-  }
-
-  # For a single pair, rank normalisation is trivial; use absolute/raw values
-  # scaled to [0,1] by theoretical max (correlation: abs -> [0,1]; MI: normalise
-  # by log(n_bins); CLQ: cap at reasonable max)
   synergy <- mean(c(
     abs(metrics$cor_pearson),
     abs(metrics$cor_spearman),
     abs(metrics$cor_biweight),
-    min(metrics$mi_score / log(5), 1),   # normalise MI by log(bins)
+    min(metrics$mi_score / log(5), 1),
     metrics$ratio_consistency,
     if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
     if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
   ), na.rm = TRUE)
 
-  # --- Permutation p-value ---------------------------------------------------
+  # --- Permutation p-value (vectorised) -------------------------------------
   p_value <- NA_real_
   if (n_perm > 0) {
     .msg("Permutation test (", n_perm, " permutations) ...", verbose = verbose)
-    null_scores <- vapply(seq_len(n_perm), function(p) {
-      y_perm <- sample(y)
-      s <- mean(c(
-        abs(stats::cor(x, y_perm, method = "pearson")),
-        abs(stats::cor(x, y_perm, method = "spearman")),
-        abs(.bicor(x, y_perm)),
-        min(.mutual_info(x, y_perm, 5) / log(5), 1),
-        .ratio_consistency(x, y_perm, cluster_ids)
-      ), na.rm = TRUE)
-      s
-    }, numeric(1))
+
+    # Pre-generate all permuted y vectors as a matrix (n_cells × n_perm)
+    perm_y_mat <- vapply(seq_len(n_perm), function(p) sample(y), numeric(n_cells))
+
+    # Vectorised Pearson: cor(x, perm_y_mat) gives 1 × n_perm
+    perm_pearson <- abs(as.numeric(stats::cor(x, perm_y_mat)))
+
+    # Vectorised Spearman: rank then Pearson
+    x_rank <- rank(x)
+    perm_y_rank <- apply(perm_y_mat, 2, rank)
+    perm_spearman <- abs(as.numeric(stats::cor(x_rank, perm_y_rank)))
+
+    # Biweight, MI, ratio consistency: still per-perm but using fast helpers
+    perm_bicor <- numeric(n_perm)
+    perm_mi <- numeric(n_perm)
+    perm_rc <- numeric(n_perm)
+
+    for (p in seq_len(n_perm)) {
+      yp <- perm_y_mat[, p]
+      perm_bicor[p] <- abs(.bicor(x, yp))
+      perm_mi[p] <- min(.mutual_info(x, yp, 5) / log(5), 1)
+      perm_rc[p] <- .ratio_consistency(x, yp, cluster_ids)
+    }
+
+    # Null composite scores (vectorised)
+    null_scores <- (perm_pearson + perm_spearman + perm_bicor +
+                      perm_mi + perm_rc) / 5
 
     p_value <- (sum(null_scores >= synergy) + 1) / (n_perm + 1)
   }

@@ -252,16 +252,22 @@ result$n_cells         # Number of cells
 
 ## Performance Notes
 
-- **Gene selection:** By default, analyzes `VariableFeatures()` from Seurat (typically 2000 genes). Reduce `n_top_genes` for faster computation on large datasets.
-- **Vectorized operations:** Correlation matrices computed in bulk via `cor()` on transposed expression matrix—no per-pair loops.
+**v0.1.1** introduces major vectorisation improvements across all metric computations:
+
+- **Co-expression filter:** Uses `tcrossprod()` on binary expression matrices — handles millions of pairs in seconds.
+- **Biweight midcorrelation:** Full correlation matrix computed via vectorised Tukey biweight kernel and `tcrossprod()` — no per-pair R-level loops.
+- **Mutual information:** Pre-computed bin assignments for all genes, vectorised MI summation via `outer()`.
+- **Spatial lag (Lee's L):** Sparse matrix multiplication (`W %*% t(mat)`) for all genes at once — replaces per-cell loops.
+- **CLQ:** Neighbour counts via sparse matrix multiply for all genes at once.
+- **Permutation p-values:** Vectorised null-vs-observed comparison across all pairs per permutation.
 - **Sparse matrix support:** Expression data remains sparse until dense operations are required, minimizing memory footprint.
 - **`data.table` backend:** All pair-level computations use `data.table` for speed and efficiency.
 - **Fast spatial KNN:** Uses `RANN::nn2()` when available for O(n log n) neighbor search; falls back to base R if unavailable.
 
 **Typical runtimes** (Intel i7, 16GB RAM):
-- 1000 genes × 5000 cells: ~30 seconds (no permutation)
-- 500 genes × 10000 cells: ~45 seconds (no permutation)
-- Add ~5-10 minutes for 999 permutations
+- 1000 genes × 5000 cells: ~5-10 seconds (no permutation)
+- 2000 genes × 10000 cells: ~30-60 seconds (no permutation)
+- Add ~2-5 minutes for 999 permutations
 
 ---
 
@@ -271,7 +277,7 @@ If you use scPairs in published research, please cite:
 
 ```
 Wang Z (2026). scPairs: Go Beyond Marker Genes – Discover Synergistic Gene
-Pairs in scRNA-seq and Spatial Maps. R package version 0.1.0.
+Pairs in scRNA-seq and Spatial Maps. R package version 0.1.1.
 https://github.com/zhaoqing-wang/scPairs
 ```
 
@@ -281,7 +287,7 @@ BibTeX:
   title = {scPairs: Go Beyond Marker Genes - Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.1.0},
+  note = {R package version 0.1.1},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```

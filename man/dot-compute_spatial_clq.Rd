@@ -54,6 +54,11 @@ and \eqn{CLQ_{B \to A}}.
 A binary expression threshold is applied: a cell "expresses" a gene if its
 normalised expression exceeds \code{expr_threshold} (default: 0, i.e. any
 non-zero count).
+
+\strong{Performance (v0.1.1):} The neighbour expression counts are computed via
+matrix multiplication.  For each gene, the binary expression vector is
+multiplied against the neighbour indicator matrix to get per-cell counts of
+expressing neighbours, replacing the previous nested vapply loops.
 }
 \references{
 Leslie, T.F. & Kronenfeld, B.J. (2011). The colocation quotient: a new
