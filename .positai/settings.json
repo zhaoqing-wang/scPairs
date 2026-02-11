@@ -4,7 +4,12 @@
       "cd \"D:\\Laboratory\\Codes\\scPairs\"": "allow",
       "ls *": "allow",
       "wc *": "allow",
-      "sort *": "allow"
+      "sort *": "allow",
+      "grep *": "allow",
+      "dir /a:h": "allow",
+      "findstr /C:\"positai\"": "allow",
+      "cat *": "allow",
+      "echo *": "allow"
     }
   }
 }

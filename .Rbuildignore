@@ -7,3 +7,4 @@
 ^\.vscode/
 ^LICENSE\.md$
 ^README\.Rmd$
+^\.positai$
