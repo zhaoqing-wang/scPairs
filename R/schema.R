@@ -25,7 +25,11 @@ RESULT_COLUMNS <- list(
 
   # Neighbourhood metrics
   neighbourhood = c("smoothed_cor", "neighbourhood_score",
-                     "cluster_cor", "cross_celltype_score"),
+                     "cluster_cor", "cross_celltype_score",
+                     "neighbourhood_synergy"),
+
+  # Prior knowledge metrics
+  prior = c("prior_score", "bridge_score"),
 
   # Spatial metrics
   spatial = c("spatial_lee_L", "spatial_lee_p", "spatial_clq"),
@@ -79,18 +83,20 @@ DEFAULT_PARAMS <- list(
 #' Default metric weights for score integration
 #' @keywords internal
 DEFAULT_WEIGHTS <- c(
-  cor_pearson          = 1.0,
-  cor_spearman         = 1.0,
-
-  cor_biweight         = 1.5,
-  mi_score             = 1.0,
-  ratio_consistency    = 1.2,
-  smoothed_cor         = 1.5,
-  neighbourhood_score  = 1.5,
-  cluster_cor          = 1.2,
-  cross_celltype_score = 1.5,
-  spatial_lee_L        = 1.5,
-  spatial_clq          = 1.2
+  cor_pearson            = 1.0,
+  cor_spearman           = 1.0,
+  cor_biweight           = 1.5,
+  mi_score               = 1.0,
+  ratio_consistency      = 1.2,
+  smoothed_cor           = 1.5,
+  neighbourhood_score    = 1.5,
+  cluster_cor            = 1.2,
+  cross_celltype_score   = 1.5,
+  neighbourhood_synergy  = 1.5,
+  prior_score            = 2.0,
+  bridge_score           = 1.8,
+  spatial_lee_L          = 1.5,
+  spatial_clq            = 1.2
 )
 
 
@@ -107,6 +113,8 @@ ABS_METRICS <- c("cor_pearson", "cor_spearman", "cor_biweight",
 #' @keywords internal
 RAW_METRICS <- c("mi_score", "ratio_consistency",
                  "neighbourhood_score", "cross_celltype_score",
+                 "neighbourhood_synergy",
+                 "prior_score", "bridge_score",
                  "spatial_clq")
 
 

@@ -35,6 +35,13 @@
 #'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
 #' @param use_spatial Logical; compute spatial metrics if available.
 #' @param spatial_k Integer; neighbourhood size for spatial metrics.
+#' @param use_prior Logical; if TRUE, compute GO/KEGG prior knowledge scores
+#'     and bridge gene analysis. Default TRUE.
+#' @param organism Character; "mouse" or "human". Used for GO/KEGG annotation
+#'     lookup when `use_prior = TRUE`.
+#' @param custom_pairs Optional data.frame with columns `gene_a` and `gene_b`
+#'     providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
+#'     SCENIC regulons).
 #' @param n_perm Integer; permutations for p-values.
 #' @param weights Named numeric; metric weights.
 #' @param top_n Integer; return only top partners.
@@ -70,6 +77,9 @@ FindGenePairs <- function(object,
                           cor_method              = c("pearson", "spearman", "biweight"),
                           n_mi_bins               = 5,
                           min_cells_expressed     = 10,
+                          use_prior               = TRUE,
+                          organism                = "mouse",
+                          custom_pairs            = NULL,
                           use_neighbourhood       = TRUE,
                           neighbourhood_k         = 20,
                           neighbourhood_reduction = "pca",
@@ -238,6 +248,35 @@ FindGenePairs <- function(object,
         pair_dt[, cross_celltype_score := .cross_celltype_batch(
           mat, pair_dt, cluster_ids, embed[, dims_use, drop = FALSE])]
       }
+    }
+  }
+
+  # --- Neighbourhood synergy score ---
+  if (has_neighbourhood && !is.null(W)) {
+    .msg("  Neighbourhood synergy score ...", verbose = verbose)
+    pair_dt[, neighbourhood_synergy := .neighbourhood_synergy_batch(mat, pair_dt, W)]
+  }
+
+  # --- Prior knowledge metrics ---
+  prior_net <- NULL
+  if (use_prior) {
+    prior_net <- tryCatch(
+      .build_prior_network(organism = organism, genes = features,
+                           custom_pairs = custom_pairs, verbose = verbose),
+      error = function(e) {
+        .msg("Prior knowledge not available: ", conditionMessage(e),
+             verbose = verbose)
+        NULL
+      }
+    )
+
+    if (!is.null(prior_net) && prior_net$n_terms > 0) {
+      .msg("  Prior knowledge scores ...", verbose = verbose)
+      pair_dt[, prior_score := .prior_score_batch(pair_dt, prior_net)]
+
+      expressed_genes <- features[features %in% rownames(mat)]
+      bridge_res <- .bridge_score_batch(pair_dt, prior_net, expressed_genes)
+      pair_dt[, bridge_score := bridge_res$scores]
     }
   }
 

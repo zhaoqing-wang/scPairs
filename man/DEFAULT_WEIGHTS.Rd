@@ -5,7 +5,7 @@
 \alias{DEFAULT_WEIGHTS}
 \title{Default metric weights for score integration}
 \format{
-An object of class \code{numeric} of length 11.
+An object of class \code{numeric} of length 14.
 }
 \usage{
 DEFAULT_WEIGHTS

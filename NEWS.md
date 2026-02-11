@@ -1,3 +1,24 @@
+# scPairs 0.1.5 (2026-02-11)
+
+## Prior Knowledge Integration & Synergy-Aware Scoring
+
+-   **New evidence layer: Prior biological knowledge** — shifts discovery from pure co-expression towards functional synergy.
+    -   `prior_score`: Jaccard similarity of GO Biological Process and KEGG pathway co-annotations between gene pairs (weight 2.0). Genes sharing many functional terms are up-weighted as synergy candidates.
+    -   `bridge_score`: Identifies pathway bridge genes — intermediary genes C that share functional annotations with BOTH genes A and B AND are expressed in the current dataset (weight 1.8). Captures indirect synergy (A→C→B) through shared pathway intermediaries, critical for detecting pairs like Adora2a-Ido1 that synergise through shared immunosuppressive pathway context.
+    -   Supports GO (Biological Process), KEGG, and user-supplied interaction databases (CellChatDB, CellPhoneDB, SCENIC regulon targets) via the `custom_pairs` parameter.
+-   **New metric: `neighbourhood_synergy`** — directional paracrine enrichment score (weight 1.5). For cells highly expressing gene A, measures whether gene B's expression in their biological neighbourhood is enriched beyond expectation (and vice versa). Captures juxtacrine/paracrine-like interactions where synergy operates between neighbouring cells rather than within the same cell.
+-   **New visualization: `PlotPairSynergy()`** — publication-ready 6-panel figure integrating:
+    1.  UMAP expression maps for each gene and their neighbourhood synergy signal
+    2.  Prior knowledge bridge gene network (igraph/ggraph) showing functional connections through intermediary genes
+    3.  Per-cluster expression comparison
+    4.  Multi-evidence metric bar chart (expression + neighbourhood + prior knowledge)
+-   **14 total metrics** across 5 evidence layers (cell-level, neighbourhood, prior knowledge, trans-cellular, spatial).
+-   All three main functions (`FindAllPairs()`, `FindGenePairs()`, `AssessGenePair()`) gain `use_prior`, `organism`, and `custom_pairs` parameters.
+-   `AssessGenePair()` now returns bridge genes, shared GO/KEGG terms, and prior network object for downstream analysis.
+-   **Optional dependencies:** `org.Mm.eg.db`, `org.Hs.eg.db`, `AnnotationDbi` (for prior knowledge; gracefully skipped if unavailable).
+
+------------------------------------------------------------------------
+
 # scPairs 0.1.4 (2026-02-08)
 
 ## Robustness & Validation

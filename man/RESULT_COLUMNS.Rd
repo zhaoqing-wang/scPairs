@@ -5,7 +5,7 @@
 \alias{RESULT_COLUMNS}
 \title{Standard column names for result data.tables}
 \format{
-An object of class \code{list} of length 5.
+An object of class \code{list} of length 6.
 }
 \usage{
 RESULT_COLUMNS

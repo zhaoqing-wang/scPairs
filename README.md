@@ -4,7 +4,9 @@
 
 [![R Version](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
 
-**scPairs** goes beyond single-marker analysis to identify cooperative gene pairs that jointly define cell states, drive pathways, or form functional complexes. It integrates 11 complementary metrics spanning cell-level co-expression, neighbourhood-aware smoothing, trans-cellular interactions, and spatial co-variation, then ranks gene pairs by a composite synergy score with optional permutation-based significance testing.
+**scPairs** goes beyond single-marker analysis to identify cooperative gene pairs that jointly define cell states, drive pathways, or form functional complexes. It integrates **14 complementary metrics** spanning five evidence layers: cell-level co-expression, neighbourhood-aware smoothing, **prior biological knowledge** (GO/KEGG pathway co-annotation, pathway bridge genes), trans-cellular interactions, and spatial co-variation. Gene pairs are ranked by a composite synergy score with optional permutation-based significance testing.
+
+**New in v0.1.5:** Prior knowledge integration shifts scoring from pure co-expression towards true functional synergy. The pathway bridge score identifies intermediary genes connecting the focal pair through shared biological pathways, enabling detection of synergistic pairs (e.g., Adora2a-Ido1 in tumour immunosuppression) even when direct co-expression is weak.
 
 ## Installation
 
@@ -16,7 +18,12 @@ devtools::install_github("zhaoqing-wang/scPairs")
 
 **Required:** Seurat (\>=4.0), SeuratObject, data.table, ggplot2, ggraph, igraph, Matrix, patchwork, tidygraph, tidyr
 
-**Optional:** RANN (fast KNN), ggExtra (marginal densities), pheatmap, crayon
+**Optional:** org.Mm.eg.db + org.Hs.eg.db + AnnotationDbi (prior knowledge), RANN (fast KNN), ggExtra (marginal densities), pheatmap, crayon
+
+``` r
+# For prior knowledge integration (recommended)
+BiocManager::install(c("org.Mm.eg.db", "org.Hs.eg.db", "AnnotationDbi"))
+```
 
 ## Quick Start
 
@@ -68,6 +75,29 @@ PlotPairSummary(sce, gene1 = "CD8A", gene2 = "CD8B", result = assessment)
 PlotPairCrossType(sce, gene1 = "CD8A", gene2 = "CD8B")
 ```
 
+### 4. Synergy-Aware Analysis with Prior Knowledge
+
+Leverage GO/KEGG pathway information to detect functional synergy:
+
+``` r
+# Prior knowledge is enabled by default (use_prior = TRUE)
+# Requires: BiocManager::install(c("org.Mm.eg.db", "AnnotationDbi"))
+
+# Assess a known synergistic pair (e.g., Adora2a-Ido1 in tumour immunity)
+result <- AssessGenePair(sce, gene1 = "Adora2a", gene2 = "Ido1",
+                          organism = "mouse")
+result  # Shows prior score, bridge genes, and shared GO/KEGG terms
+
+# Visualize the full synergistic relationship
+PlotPairSynergy(sce, gene1 = "Adora2a", gene2 = "Ido1", organism = "mouse")
+
+# Supply custom interaction databases (CellChatDB, SCENIC, etc.)
+custom_db <- data.frame(gene1 = c("Adora2a", "Cd274"),
+                        gene2 = c("Ido1", "Pdcd1"),
+                        source = "custom_validated")
+result <- FindGenePairs(sce, gene = "Adora2a", custom_pairs = custom_db)
+```
+
 ### Spatial Transcriptomics
 
 Spatial metrics are **automatically detected** for Visually, MERFISH, Slide-seq, etc.:
@@ -81,12 +111,13 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 ## Metrics
 
-scPairs evaluates each gene pair through four layers of evidence:
+scPairs evaluates each gene pair through five layers of evidence:
 
 | Layer | Metrics | What It Captures |
 |------------------------|------------------------|------------------------|
 | **Cell-level** | Pearson, Spearman, Biweight midcorrelation, Mutual information, Ratio consistency | Direct co-expression, non-linear dependence, stoichiometric stability |
-| **Neighbourhood** | KNN-smoothed correlation, Neighbourhood co-expression, Cluster pseudo-bulk correlation | Co-regulation beyond dropout noise, population-level patterns |
+| **Neighbourhood** | KNN-smoothed correlation, Neighbourhood co-expression, Cluster pseudo-bulk correlation, **Neighbourhood synergy** | Co-regulation beyond dropout, population-level patterns, directional paracrine enrichment |
+| **Prior knowledge** | **GO/KEGG co-annotation score**, **Pathway bridge score** | Functional relatedness from curated databases, indirect synergy through pathway intermediaries |
 | **Trans-cellular** | Cross-cell-type interaction score | Paracrine signalling, ligand-receptor pairs across cell types |
 | **Spatial** | Lee's L statistic, Co-location quotient (CLQ) | Bivariate spatial autocorrelation, proximity enrichment |
 
@@ -114,6 +145,7 @@ Higher weights (1.5) are assigned to dropout-robust metrics (biweight, smoothed 
 | `PlotPairCrossType()` | Cross-cell-type interaction heatmap            |
 | `PlotPairViolin()`    | Expression distributions by cluster            |
 | `PlotPairScatter()`   | Gene-gene scatter plot                         |
+| `PlotPairSynergy()`   | Prior knowledge + neighbourhood synergy (6-panel) |
 
 ## Output
 
@@ -140,7 +172,7 @@ Vectorised implementations (tcrossprod, sparse matrix multiply, pre-binned MI) y
   title = {scPairs: Discover Synergistic Gene Pairs in scRNA-seq and Spatial Transcriptomics},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.1.4},
+  note = {R package version 0.1.5},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```

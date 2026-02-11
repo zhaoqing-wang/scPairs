@@ -36,6 +36,13 @@
 #'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
 #' @param use_spatial Logical.
 #' @param spatial_k Integer; KNN k.
+#' @param use_prior Logical; if TRUE, compute GO/KEGG prior knowledge scores
+#'     and bridge gene analysis. Default TRUE.
+#' @param organism Character; "mouse" or "human". Used for GO/KEGG annotation
+#'     lookup when `use_prior = TRUE`.
+#' @param custom_pairs Optional data.frame with columns `gene_a` and `gene_b`
+#'     providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
+#'     SCENIC regulons).
 #' @param n_perm Integer; number of permutations (default 999).
 #' @param verbose Logical.
 #'
@@ -70,6 +77,9 @@ AssessGenePair <- function(object,
                            assay                   = NULL,
                            slot                    = "data",
                            cluster_col             = NULL,
+                           use_prior               = TRUE,
+                           organism                = "mouse",
+                           custom_pairs            = NULL,
                            use_neighbourhood       = TRUE,
                            neighbourhood_k         = 20,
                            neighbourhood_reduction = "pca",
@@ -217,6 +227,43 @@ AssessGenePair <- function(object,
     }
   }
 
+  # --- Neighbourhood synergy score -------------------------------------------
+  if (has_neighbourhood && !is.null(W)) {
+    .msg("Computing neighbourhood synergy ...", verbose = verbose)
+    metrics$neighbourhood_synergy <- .neighbourhood_synergy(x, y, W)
+  }
+
+  # --- Prior knowledge metrics -----------------------------------------------
+  prior_net <- NULL
+  bridge_result <- NULL
+  if (use_prior) {
+    all_genes <- rownames(.get_expression_matrix(object, assay = assay, slot = slot))
+    prior_net <- tryCatch(
+      .build_prior_network(organism = organism, genes = all_genes,
+                           custom_pairs = custom_pairs, verbose = verbose),
+      error = function(e) {
+        .msg("Prior knowledge not available: ", conditionMessage(e),
+             verbose = verbose)
+        NULL
+      }
+    )
+
+    if (!is.null(prior_net) && prior_net$n_terms > 0) {
+      .msg("Computing prior knowledge scores ...", verbose = verbose)
+      metrics$prior_score <- .prior_score(gene1, gene2, prior_net)
+
+      expressed_genes <- all_genes[
+        Matrix::rowMeans(.get_expression_matrix(object, assay = assay, slot = slot) > 0) > 0.01]
+      bridge_result <- .bridge_score(gene1, gene2, prior_net, expressed_genes)
+      metrics$bridge_score <- bridge_result$score
+      metrics$n_bridge_genes <- length(bridge_result$bridges)
+      metrics$bridge_genes <- paste(utils::head(bridge_result$bridges, 20),
+                                    collapse = ", ")
+      metrics$shared_terms <- paste(utils::head(bridge_result$shared_terms, 10),
+                                    collapse = ", ")
+    }
+  }
+
   # --- Spatial metrics -------------------------------------------------------
   has_spatial <- FALSE
   if (use_spatial && .has_spatial(object)) {
@@ -247,6 +294,10 @@ AssessGenePair <- function(object,
     if (has_neighbourhood) min(pmax(metrics$neighbourhood_score, 0) / 2, 1) else NULL,
     if (has_neighbourhood && !is.na(metrics$cluster_cor)) abs(metrics$cluster_cor) else NULL,
     if (has_neighbourhood && !is.na(metrics$cross_celltype_score)) metrics$cross_celltype_score else NULL,
+    if (has_neighbourhood && !is.null(metrics$neighbourhood_synergy) && !is.na(metrics$neighbourhood_synergy))
+      min(pmax(metrics$neighbourhood_synergy, 0) / 2, 1) else NULL,
+    if (!is.null(metrics$prior_score) && !is.na(metrics$prior_score)) metrics$prior_score else NULL,
+    if (!is.null(metrics$bridge_score) && !is.na(metrics$bridge_score)) metrics$bridge_score else NULL,
     if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
     if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
   ), na.rm = TRUE)
@@ -335,6 +386,9 @@ AssessGenePair <- function(object,
       metrics              = metrics,
       per_cluster          = per_cluster,
       cross_celltype_detail = cross_celltype_detail,
+      bridge_genes         = if (!is.null(bridge_result)) bridge_result$bridges else character(0),
+      shared_terms         = if (!is.null(bridge_result)) bridge_result$shared_terms else character(0),
+      prior_net            = prior_net,
       synergy_score        = synergy,
       p_value              = p_value,
       confidence           = confidence,
@@ -367,6 +421,14 @@ print.scPairs_pair_result <- function(x, ...) {
     }
   }
   if (x$has_spatial) cat("  (Spatial metrics included)\n")
+  if (length(x$bridge_genes) > 0) {
+    cat(sprintf("\n  Bridge genes (%d): %s\n",
+                length(x$bridge_genes),
+                paste(utils::head(x$bridge_genes, 10), collapse = ", ")))
+  }
+  if (length(x$shared_terms) > 0) {
+    cat(sprintf("  Shared GO/KEGG terms: %d\n", length(x$shared_terms)))
+  }
   cat("\n  Per-cluster correlations:\n")
   print(x$per_cluster, row.names = FALSE)
   if (!is.null(x$cross_celltype_detail) && nrow(x$cross_celltype_detail) > 0) {

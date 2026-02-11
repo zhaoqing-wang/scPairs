@@ -1,7 +1,7 @@
 Package: scPairs
-Version: 0.1.4
+Version: 0.1.5
 Title: Discover Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
-Description: Identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating 11 complementary metrics: cell-level co-expression (Pearson, Spearman, biweight midcorrelation, mutual information, ratio consistency), neighbourhood-aware metrics (KNN-smoothed correlation, neighbourhood co-expression score, cluster-level pseudo-bulk correlation), trans-cellular interaction (cross-cell-type score for paracrine and ligand-receptor signalling), and spatial co-variation (Lee's L statistic, co-location quotient). Metrics are rank-normalised and combined via weighted summation into a composite synergy score with optional permutation-based p-values and FDR correction. Three workflows are provided: global pair discovery, query-centric partner search, and in-depth pair assessment. Includes publication-ready visualizations for networks, heatmaps, UMAP overlays, spatial maps, and cross-cell-type interactions.
+Description: Identifies synergistic gene pairs in single-cell RNA-seq and spatial transcriptomics data by integrating 14 complementary metrics across five evidence layers: cell-level co-expression (Pearson, Spearman, biweight midcorrelation, mutual information, ratio consistency), neighbourhood-aware metrics (KNN-smoothed correlation, neighbourhood co-expression score, cluster-level pseudo-bulk correlation, neighbourhood synergy score), prior biological knowledge (GO/KEGG pathway co-annotation score, pathway bridge score for indirect connections through expressed intermediary genes), trans-cellular interaction (cross-cell-type score for paracrine and ligand-receptor signalling), and spatial co-variation (Lee's L statistic, co-location quotient). Prior knowledge integration shifts discovery from pure co-expression towards functional synergy by incorporating Gene Ontology, KEGG pathway annotations, and user-supplied interaction databases (CellChatDB, CellPhoneDB, SCENIC regulons). Metrics are rank-normalised and combined via weighted summation into a composite synergy score with optional permutation-based p-values and FDR correction. Three workflows are provided: global pair discovery, query-centric partner search, and in-depth pair assessment. Includes publication-ready visualizations including a new synergy network plot showing prior knowledge bridge genes connecting the focal pair.
 Authors@R: 
     person(given = "Zhaoqing", family = "Wang",
            email = "zhaoqingwang@mail.sdu.edu.cn",
@@ -26,6 +26,9 @@ Imports:
     tidygraph,
     tidyr
 Suggests:
+    AnnotationDbi,
+    org.Mm.eg.db,
+    org.Hs.eg.db,
     crayon,
     ggExtra,
     RANN,
@@ -35,4 +38,4 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Date: 2026-02-09
+Date: 2026-02-11

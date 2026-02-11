@@ -11,6 +11,9 @@ AssessGenePair(
   assay = NULL,
   slot = "data",
   cluster_col = NULL,
+  use_prior = TRUE,
+  organism = "mouse",
+  custom_pairs = NULL,
   use_neighbourhood = TRUE,
   neighbourhood_k = 20,
   neighbourhood_reduction = "pca",
@@ -33,6 +36,16 @@ AssessGenePair(
 \item{slot}{Character; data slot.}
 
 \item{cluster_col}{Character; cluster column.}
+
+\item{use_prior}{Logical; if TRUE, compute GO/KEGG prior knowledge scores
+and bridge gene analysis. Default TRUE.}
+
+\item{organism}{Character; "mouse" or "human". Used for GO/KEGG annotation
+lookup when \code{use_prior = TRUE}.}
+
+\item{custom_pairs}{Optional data.frame with columns \code{gene_a} and \code{gene_b}
+providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
+SCENIC regulons).}
 
 \item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
 (KNN-smoothed correlation and neighbourhood co-expression score).}

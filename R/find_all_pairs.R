@@ -42,6 +42,13 @@
 #' @param min_cells_expressed Integer; minimum co-expressing cells to keep a
 #'     pair. Default 10.  Set to 0 to retain all pairs (recommended when
 #'     neighbourhood metrics are enabled).
+#' @param use_prior Logical; integrate prior knowledge (GO/KEGG pathway
+#'     co-annotation and bridge genes).  Default TRUE.  Requires
+#'     \code{org.Mm.eg.db} or \code{org.Hs.eg.db} and \code{AnnotationDbi}.
+#' @param organism Character; \code{"mouse"} or \code{"human"} for prior
+#'     knowledge lookup.  Default \code{"mouse"}.
+#' @param custom_pairs Optional data.frame with columns \code{gene1},
+#'     \code{gene2} for user-supplied interactions (CellChatDB, etc.).
 #' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
 #'     (KNN-smoothed correlation, neighbourhood co-expression score, and
 #'     cluster-level pseudo-bulk correlation).  Default TRUE.  These metrics
@@ -98,6 +105,9 @@ FindAllPairs <- function(object,
                          cor_method            = c("pearson", "spearman", "biweight"),
                          n_mi_bins             = 5,
                          min_cells_expressed   = 10,
+                         use_prior             = TRUE,
+                         organism              = "mouse",
+                         custom_pairs          = NULL,
                          use_neighbourhood     = TRUE,
                          neighbourhood_k       = 20,
                          neighbourhood_reduction = "pca",
@@ -203,6 +213,35 @@ FindAllPairs <- function(object,
     }
   }
 
+  # --- Neighbourhood synergy score ------------------------------------------
+  if (has_neighbourhood && !is.null(W)) {
+    .msg("  Neighbourhood synergy score ...", verbose = verbose)
+    pair_dt[, neighbourhood_synergy := .neighbourhood_synergy_batch(mat, pair_dt, W)]
+  }
+
+  # --- Prior knowledge metrics -----------------------------------------------
+  prior_net <- NULL
+  if (use_prior) {
+    prior_net <- tryCatch(
+      .build_prior_network(organism = organism, genes = features,
+                           custom_pairs = custom_pairs, verbose = verbose),
+      error = function(e) {
+        .msg("Prior knowledge not available: ", conditionMessage(e),
+             ". Continuing without prior scores.", verbose = verbose)
+        NULL
+      }
+    )
+
+    if (!is.null(prior_net) && prior_net$n_terms > 0) {
+      .msg("Computing prior knowledge scores ...", verbose = verbose)
+      pair_dt[, prior_score := .prior_score_batch(pair_dt, prior_net)]
+
+      expressed_genes <- features[features %in% rownames(mat)]
+      bridge_res <- .bridge_score_batch(pair_dt, prior_net, expressed_genes)
+      pair_dt[, bridge_score := bridge_res$scores]
+    }
+  }
+
   # --- Spatial metrics (if available) ---------------------------------------
   has_spatial <- FALSE
   if (use_spatial && .has_spatial(object)) {
@@ -251,6 +290,7 @@ FindAllPairs <- function(object,
   .build_result(pair_dt, features, object, has_spatial,
                 list(cor_method = cor_method, n_mi_bins = n_mi_bins,
                      min_cells_expressed = min_cells_expressed,
+                     use_prior = use_prior, organism = organism,
                      use_neighbourhood = use_neighbourhood,
                      neighbourhood_k = neighbourhood_k,
                      smooth_alpha = smooth_alpha,

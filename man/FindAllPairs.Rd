@@ -14,6 +14,9 @@ FindAllPairs(
   cor_method = c("pearson", "spearman", "biweight"),
   n_mi_bins = 5,
   min_cells_expressed = 10,
+  use_prior = TRUE,
+  organism = "mouse",
+  custom_pairs = NULL,
   use_neighbourhood = TRUE,
   neighbourhood_k = 20,
   neighbourhood_reduction = "pca",
@@ -51,6 +54,16 @@ Default \code{c("pearson", "spearman", "biweight")}.}
 \item{min_cells_expressed}{Integer; minimum co-expressing cells to keep a
 pair. Default 10.  Set to 0 to retain all pairs (recommended when
 neighbourhood metrics are enabled).}
+
+\item{use_prior}{Logical; integrate prior knowledge (GO/KEGG pathway
+co-annotation and bridge genes).  Default TRUE.  Requires
+\code{org.Mm.eg.db} or \code{org.Hs.eg.db} and \code{AnnotationDbi}.}
+
+\item{organism}{Character; \code{"mouse"} or \code{"human"} for prior
+knowledge lookup.  Default \code{"mouse"}.}
+
+\item{custom_pairs}{Optional data.frame with columns \code{gene1},
+\code{gene2} for user-supplied interactions (CellChatDB, etc.).}
 
 \item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
 (KNN-smoothed correlation, neighbourhood co-expression score, and

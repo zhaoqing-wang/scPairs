@@ -15,6 +15,9 @@ FindGenePairs(
   cor_method = c("pearson", "spearman", "biweight"),
   n_mi_bins = 5,
   min_cells_expressed = 10,
+  use_prior = TRUE,
+  organism = "mouse",
+  custom_pairs = NULL,
   use_neighbourhood = TRUE,
   neighbourhood_k = 20,
   neighbourhood_reduction = "pca",
@@ -48,6 +51,16 @@ auto-select from \code{VariableFeatures} or top-expressed genes.}
 \item{n_mi_bins}{Bins for mutual information.}
 
 \item{min_cells_expressed}{Minimum cells co-expressing both genes.}
+
+\item{use_prior}{Logical; if TRUE, compute GO/KEGG prior knowledge scores
+and bridge gene analysis. Default TRUE.}
+
+\item{organism}{Character; "mouse" or "human". Used for GO/KEGG annotation
+lookup when \code{use_prior = TRUE}.}
+
+\item{custom_pairs}{Optional data.frame with columns \code{gene_a} and \code{gene_b}
+providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
+SCENIC regulons).}
 
 \item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
 (KNN-smoothed correlation and neighbourhood co-expression score).}

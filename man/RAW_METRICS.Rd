@@ -5,7 +5,7 @@
 \alias{RAW_METRICS}
 \title{Metrics used as raw values (not absolute-valued)}
 \format{
-An object of class \code{character} of length 5.
+An object of class \code{character} of length 8.
 }
 \usage{
 RAW_METRICS
