@@ -1,107 +1,84 @@
-#' Discover All Synergistic Gene Pairs in a Single-Cell or Spatial Dataset
+#' Discover All Synergistic Gene Pairs
 #'
 #' @description
 #' The primary discovery function of **scPairs**.
-#' Given a Seurat object (scRNA-seq or spatial transcriptomics), `FindAllPairs`
-#' identifies statistically significant synergistic gene pairs by integrating
-#' multiple lines of evidence:
+#' Given a Seurat object, `FindAllPairs` identifies synergistic gene pairs by
+#' integrating multiple lines of evidence: co-expression, neighbourhood
+#' smoothing, prior biological knowledge, and spatial co-variation.
 #'
-#' 1. **Co-expression** -- Pearson, Spearman, and biweight midcorrelation
-#'    capture linear, rank-based, and robust associations.
-#' 2. **Mutual information** -- detects non-linear dependencies missed by
-#'    correlation.
-#' 3. **Ratio consistency** -- tests whether the expression ratio of two genes
-#'    is stable across cell clusters, a hallmark of genuine co-regulation.
-#' 4. **Spatial co-variation** (spatial data only) -- Lee's L statistic measures
-#'    bivariate spatial autocorrelation; the co-location quotient (CLQ) tests
-#'    whether expressing cells are spatially attracted.
-#'
+#' @details
 #' Metrics are rank-normalised and combined via weighted summation.
 #' Optional permutation testing provides empirical p-values.
 #'
-#' @details
-#' **Performance (v0.1.1):** All core metric computations are vectorised.
-#' The co-expression filter uses matrix crossproduct, biweight midcorrelation
-#' is computed as a full matrix via vectorised kernel operations, and spatial
-#' metrics use sparse matrix multiplication for the spatial lag.  These changes
-#' yield 5--20x speedups on datasets with >500 genes.
+#' The `mode` parameter controls which metric layers are computed:
+#' * `"all"` (default) -- compute all available metrics.
+#' * `"expression"` -- expression and neighbourhood metrics only (no prior
+#'   knowledge).
+#' * `"prior_only"` -- prior knowledge scores only (fast).
 #'
 #' @param object A Seurat object (scRNA-seq or spatial).
-#' @param features Character vector of gene names to consider.  NULL (default)
-#'     uses Seurat `VariableFeatures`; if unavailable, selects the top
-#'     `n_top_genes` by mean expression.
+#' @param features Character vector of gene names to consider.
+#'     NULL (default) uses Seurat `VariableFeatures`; if unavailable, selects
+#'     the top `n_top_genes` by mean expression.
 #' @param n_top_genes Integer; maximum number of genes to analyse when
 #'     `features = NULL`.  Default 2000.
 #' @param assay Character; assay to use.  Default: `DefaultAssay(object)`.
 #' @param slot Character; data slot.  Default `"data"` (log-normalised).
-#' @param cluster_col Character; column in `meta.data` with cluster IDs
-#'     (for ratio-consistency).  NULL = use `Idents(object)`.
+#' @param cluster_col Character; column in `meta.data` with cluster IDs.
+#'     NULL = use `Idents(object)`.
+#' @param mode Character; `"all"`, `"expression"`, or `"prior_only"`.
 #' @param cor_method Character vector; correlation methods to compute.
 #'     Default `c("pearson", "spearman", "biweight")`.
 #' @param n_mi_bins Integer; bins for mutual information.  0 = skip MI.
 #' @param min_cells_expressed Integer; minimum co-expressing cells to keep a
-#'     pair. Default 10.  Set to 0 to retain all pairs (recommended when
-#'     neighbourhood metrics are enabled).
-#' @param use_prior Logical; integrate prior knowledge (GO/KEGG pathway
-#'     co-annotation and bridge genes).  Default TRUE.  Requires
-#'     \code{org.Mm.eg.db} or \code{org.Hs.eg.db} and \code{AnnotationDbi}.
-#' @param organism Character; \code{"mouse"} or \code{"human"} for prior
-#'     knowledge lookup.  Default \code{"mouse"}.
-#' @param custom_pairs Optional data.frame with columns \code{gene1},
-#'     \code{gene2} for user-supplied interactions (CellChatDB, etc.).
-#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
-#'     (KNN-smoothed correlation, neighbourhood co-expression score, and
-#'     cluster-level pseudo-bulk correlation).  Default TRUE.  These metrics
-#'     are critical for detecting synergistic pairs where cell-level
-#'     co-expression is absent due to sparsity.
-#' @param neighbourhood_k Integer; number of nearest neighbours for the
-#'     neighbourhood graph.  Default 20.
-#' @param neighbourhood_reduction Character; reduction to use for building the
-#'     KNN graph.  Default `"pca"`.
-#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
-#'     0 = pure neighbour average, 1 = no smoothing.  Default 0.3.
-#' @param use_spatial Logical; compute spatial metrics when available.
+#'     pair.  Default 10.
+#' @param use_prior Logical; integrate prior knowledge (GO/KEGG).  Default TRUE.
+#' @param organism Character; `"mouse"` or `"human"`.
+#' @param custom_pairs Optional data.frame with columns `gene1`, `gene2`.
+#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics.
 #'     Default TRUE.
-#' @param spatial_k Integer; KNN neighbourhood size for spatial analyses.
-#' @param n_perm Integer; permutations for p-values.  0 = skip (fast mode).
-#' @param weights Named numeric vector; metric weights for score integration.
-#'     NULL = use defaults.
-#' @param top_n Integer or NULL; return only the top *n* pairs by synergy
-#'     score.  NULL = return all.
-#' @param verbose Logical; print progress.
+#' @param neighbourhood_k Integer; KNN k.  Default 20.
+#' @param neighbourhood_reduction Character; reduction for KNN.  Default `"pca"`.
+#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
+#' @param use_spatial Logical; compute spatial metrics when available.
+#' @param spatial_k Integer; spatial KNN k.
+#' @param n_perm Integer; permutations for p-values.  0 = skip.
+#' @param weights Named numeric; metric weights for score integration.
+#' @param top_n Integer or NULL; return only top *n* pairs.
+#' @param verbose Logical.
 #'
 #' @return A list with class `"scPairs_result"` containing:
 #' \describe{
 #'   \item{`pairs`}{`data.table` of gene pairs with all metric columns,
 #'     `synergy_score`, `rank`, `p_value` (if permutation), `p_adj`,
 #'     `confidence`.}
-#'   \item{`parameters`}{List of analysis parameters for reproducibility.}
+#'   \item{`parameters`}{List of analysis parameters.}
 #'   \item{`n_genes`}{Number of genes analysed.}
 #'   \item{`n_cells`}{Number of cells.}
-#'   \item{`has_spatial`}{Logical; whether spatial metrics were computed.}
+#'   \item{`has_spatial`}{Logical.}
+#'   \item{`mode`}{Character; the mode used.}
 #' }
 #'
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' # Discover top 100 synergistic pairs (fast, no permutation)
+#' # Default: all metrics
 #' result <- FindAllPairs(seurat_obj, n_top_genes = 500, top_n = 100)
-#' head(result$pairs)
 #'
-#' # Full analysis with permutation p-values
-#' result <- FindAllPairs(seurat_obj, n_perm = 999)
+#' # Expression only (skip prior knowledge)
+#' result <- FindAllPairs(seurat_obj, mode = "expression")
 #'
-#' # Visualise the network
-#' PlotPairNetwork(result)
+#' # Prior knowledge only (fast screening)
+#' result <- FindAllPairs(seurat_obj, mode = "prior_only")
 #' }
-#'
 FindAllPairs <- function(object,
                          features              = NULL,
                          n_top_genes           = 2000,
                          assay                 = NULL,
                          slot                  = "data",
                          cluster_col           = NULL,
+                         mode                  = c("all", "expression", "prior_only"),
                          cor_method            = c("pearson", "spearman", "biweight"),
                          n_mi_bins             = 5,
                          min_cells_expressed   = 10,
@@ -119,175 +96,108 @@ FindAllPairs <- function(object,
                          top_n                 = NULL,
                          verbose               = TRUE) {
 
-  # --- Input validation -----------------------------------------------------
+  mode <- match.arg(mode)
+
+  # --- Input validation ---
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
-
   n_cells_total <- ncol(object)
-  .validate_cor_method(cor_method)
-  .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
-  .validate_percentage(smooth_alpha, "smooth_alpha")
-  if (use_neighbourhood) {
-    .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
+
+  if (mode != "prior_only") {
+    .validate_cor_method(cor_method)
+    .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
+    .validate_percentage(smooth_alpha, "smooth_alpha")
+    if (use_neighbourhood) {
+      .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
+    }
   }
-  if (n_perm > 0) {
-    .validate_n_perm(n_perm)
+  if (n_perm > 0) .validate_n_perm(n_perm)
+
+  # Override flags based on mode
+  if (mode == "expression")  use_prior <- FALSE
+  if (mode == "prior_only") {
+    use_neighbourhood <- FALSE
+    use_spatial       <- FALSE
   }
 
-  # --- Select features ------------------------------------------------------
+  # --- Select features ---
   features <- .select_features(object, features, n_top = n_top_genes, assay = assay)
   if (!is.null(features) && length(features) > 0) {
     features <- .validate_features(features, object, assay)
   }
   .msg("Selected ", length(features), " genes for analysis.", verbose = verbose)
 
-  # --- Extract data ---------------------------------------------------------
-  mat <- .get_expression_matrix(object, features = features, assay = assay, slot = slot)
+  # --- Extract data ---
+  mat <- .get_expression_matrix(object, features = features,
+                                assay = assay, slot = slot)
 
-  # Cluster IDs
-  if (!is.null(cluster_col)) {
-    if (!(cluster_col %in% colnames(object@meta.data))) {
-      stop(sprintf("cluster_col '%s' not found in meta.data.", cluster_col),
-           call. = FALSE)
-    }
-    cluster_ids <- as.factor(object@meta.data[[cluster_col]])
+  cluster_ids <- .resolve_cluster_ids(object, cluster_col)
+
+  # --- Build pair table via co-expression ---
+  if (mode == "prior_only") {
+    # Generate all unique pairs without co-expression filter
+    n_genes <- length(features)
+    pair_idx <- utils::combn(n_genes, 2)
+    pair_dt <- data.table::data.table(
+      gene1 = features[pair_idx[1, ]],
+      gene2 = features[pair_idx[2, ]]
+    )
   } else {
-    cluster_ids <- as.factor(Seurat::Idents(object))
+    pair_dt <- .compute_coexpression(
+      mat                 = mat,
+      features            = features,
+      cluster_ids         = cluster_ids,
+      cor_method          = cor_method,
+      n_mi_bins           = n_mi_bins,
+      min_cells_expressed = min_cells_expressed,
+      verbose             = verbose
+    )
   }
-
-  # --- Co-expression metrics ------------------------------------------------
-  pair_dt <- .compute_coexpression(
-    mat                 = mat,
-    features            = features,
-    cluster_ids         = cluster_ids,
-    cor_method          = cor_method,
-    n_mi_bins           = n_mi_bins,
-    min_cells_expressed = min_cells_expressed,
-    verbose             = verbose
-  )
 
   if (nrow(pair_dt) == 0) {
     warning("No gene pairs passed the minimum co-expression filter.",
             call. = FALSE)
-    return(.build_result(pair_dt, features, object, FALSE, list()))
+    return(.build_result(pair_dt, features, object, FALSE, list(), mode))
   }
 
-  # --- Neighbourhood metrics (v0.2.0) --------------------------------------
-  has_neighbourhood <- FALSE
-  if (use_neighbourhood) {
-    W <- tryCatch(
-      .build_knn_graph(object, reduction = neighbourhood_reduction,
-                       k = neighbourhood_k),
-      error = function(e) {
-        .msg("Could not build KNN graph: ", conditionMessage(e),
-             ". Skipping neighbourhood metrics.", verbose = verbose)
-        NULL
-      }
+  # --- Compute remaining metrics via shared engine ---
+  # Skip expression metrics already computed by .compute_coexpression
+  if (mode != "prior_only") {
+    # Neighbourhood, prior, spatial, integration
+    # Expression metrics already computed above; skip in engine
+    engine <- .compute_pair_metrics(
+      mat = mat, pair_dt = pair_dt, cluster_ids = cluster_ids,
+      object = object, mode = mode,
+      cor_method = character(0), n_mi_bins = 0,
+      min_cells_expressed = 0,
+      use_neighbourhood = use_neighbourhood,
+      neighbourhood_k = neighbourhood_k,
+      neighbourhood_reduction = neighbourhood_reduction,
+      smooth_alpha = smooth_alpha,
+      use_prior = use_prior, organism = organism,
+      custom_pairs = custom_pairs,
+      use_spatial = use_spatial, spatial_k = spatial_k,
+      n_perm = n_perm, weights = weights, verbose = verbose
     )
-
-    if (!is.null(W)) {
-      has_neighbourhood <- TRUE
-      .msg("Computing neighbourhood-aware metrics ...", verbose = verbose)
-
-      .msg("  KNN-smoothed correlation ...", verbose = verbose)
-      pair_dt[, smoothed_cor := .smoothed_cor_batch(
-        mat, pair_dt, W, alpha = smooth_alpha, method = "pearson")]
-
-      .msg("  Neighbourhood co-expression score ...", verbose = verbose)
-      pair_dt[, neighbourhood_score := .neighbourhood_coexpr_batch(
-        mat, pair_dt, W)]
-
-      .msg("  Cluster-level correlation ...", verbose = verbose)
-      pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
-
-      .msg("  Cross-cell-type interaction score ...", verbose = verbose)
-      embed <- tryCatch(
-        Seurat::Embeddings(object, reduction = neighbourhood_reduction),
-        error = function(e) NULL
-      )
-      if (!is.null(embed)) {
-        dims_use <- seq_len(min(30, ncol(embed)))
-        pair_dt[, cross_celltype_score := .cross_celltype_batch(
-          mat, pair_dt, cluster_ids, embed[, dims_use, drop = FALSE])]
-      }
-    }
-  }
-
-  # --- Neighbourhood synergy score ------------------------------------------
-  if (has_neighbourhood && !is.null(W)) {
-    .msg("  Neighbourhood synergy score ...", verbose = verbose)
-    pair_dt[, neighbourhood_synergy := .neighbourhood_synergy_batch(mat, pair_dt, W)]
-  }
-
-  # --- Prior knowledge metrics -----------------------------------------------
-  prior_net <- NULL
-  if (use_prior) {
-    prior_net <- tryCatch(
-      .build_prior_network(organism = organism, genes = features,
-                           custom_pairs = custom_pairs, verbose = verbose),
-      error = function(e) {
-        .msg("Prior knowledge not available: ", conditionMessage(e),
-             ". Continuing without prior scores.", verbose = verbose)
-        NULL
-      }
-    )
-
-    if (!is.null(prior_net) && prior_net$n_terms > 0) {
-      .msg("Computing prior knowledge scores ...", verbose = verbose)
-      pair_dt[, prior_score := .prior_score_batch(pair_dt, prior_net)]
-
-      expressed_genes <- features[features %in% rownames(mat)]
-      bridge_res <- .bridge_score_batch(pair_dt, prior_net, expressed_genes)
-      pair_dt[, bridge_score := bridge_res$scores]
-    }
-  }
-
-  # --- Spatial metrics (if available) ---------------------------------------
-  has_spatial <- FALSE
-  if (use_spatial && .has_spatial(object)) {
-    has_spatial <- TRUE
-    .msg("Spatial data detected. Computing spatial metrics ...", verbose = verbose)
-    coords <- .get_spatial_coords(object)
-
-    pair_dt <- .compute_spatial_lee(
-      coords  = coords,
-      mat     = mat,
-      pair_dt = pair_dt,
-      k       = spatial_k,
-      n_perm  = min(n_perm, 199),
-      verbose = verbose
-    )
-
-    pair_dt <- .compute_spatial_clq(
-      coords         = coords,
-      mat            = mat,
-      pair_dt        = pair_dt,
-      k              = spatial_k,
-      expr_threshold = 0,
-      verbose        = verbose
+  } else {
+    engine <- .compute_pair_metrics(
+      mat = mat, pair_dt = pair_dt, cluster_ids = cluster_ids,
+      object = object, mode = "prior_only",
+      use_prior = use_prior, organism = organism,
+      custom_pairs = custom_pairs,
+      n_perm = n_perm, weights = weights, verbose = verbose
     )
   }
 
-  # --- Score integration ----------------------------------------------------
-  pair_dt <- .integrate_scores(
-    pair_dt     = pair_dt,
-    weights     = weights,
-    n_perm      = n_perm,
-    mat         = mat,
-    cluster_ids = cluster_ids,
-    coords      = if (has_spatial) coords else NULL,
-    spatial_k   = spatial_k,
-    verbose     = verbose
-  )
+  pair_dt <- engine$pair_dt
 
-  # --- Top N filtering ------------------------------------------------------
-  data.table::setorder(pair_dt, rank)
+  # --- Top N filtering ---
   if (!is.null(top_n) && top_n < nrow(pair_dt)) {
     pair_dt <- pair_dt[seq_len(top_n), ]
   }
 
-  # --- Return ---------------------------------------------------------------
-  .build_result(pair_dt, features, object, has_spatial,
+  # --- Return ---
+  .build_result(pair_dt, features, object, engine$has_spatial,
                 list(cor_method = cor_method, n_mi_bins = n_mi_bins,
                      min_cells_expressed = min_cells_expressed,
                      use_prior = use_prior, organism = organism,
@@ -295,23 +205,41 @@ FindAllPairs <- function(object,
                      neighbourhood_k = neighbourhood_k,
                      smooth_alpha = smooth_alpha,
                      spatial_k = spatial_k, n_perm = n_perm,
-                     weights = weights, top_n = top_n))
+                     weights = weights, top_n = top_n),
+                mode)
 }
 
 
 #' Build standardised scPairs result object
 #' @keywords internal
-.build_result <- function(pair_dt, features, object, has_spatial, params) {
+.build_result <- function(pair_dt, features, object, has_spatial, params,
+                          mode = "all") {
   structure(
     list(
       pairs       = pair_dt,
       parameters  = params,
       n_genes     = length(features),
       n_cells     = ncol(object),
-      has_spatial  = has_spatial
+      has_spatial  = has_spatial,
+      mode        = mode
     ),
     class = "scPairs_result"
   )
+}
+
+
+#' Resolve cluster IDs from Seurat object
+#' @keywords internal
+.resolve_cluster_ids <- function(object, cluster_col = NULL) {
+  if (!is.null(cluster_col)) {
+    if (!(cluster_col %in% colnames(object@meta.data))) {
+      stop(sprintf("cluster_col '%s' not found in meta.data.", cluster_col),
+           call. = FALSE)
+    }
+    as.factor(object@meta.data[[cluster_col]])
+  } else {
+    as.factor(Seurat::Idents(object))
+  }
 }
 
 
@@ -326,6 +254,7 @@ print.scPairs_result <- function(x, ...) {
   cat(sprintf("  Cells          : %d\n", x$n_cells))
   cat(sprintf("  Pairs found    : %d\n", nrow(x$pairs)))
   cat(sprintf("  Spatial metrics: %s\n", ifelse(x$has_spatial, "Yes", "No")))
+  if (!is.null(x$mode)) cat(sprintf("  Mode           : %s\n", x$mode))
   if (nrow(x$pairs) > 0 && "confidence" %in% colnames(x$pairs)) {
     conf_tbl <- table(x$pairs$confidence)
     cat("  Confidence: ",

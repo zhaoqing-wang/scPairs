@@ -94,7 +94,9 @@ PlotPairSmoothed <- function(object,
 
   .make_panel <- function(data, col, scale_opt, panel_title, subtitle = NULL) {
     data <- data[order(data[[col]]), ]
-    p <- ggplot2::ggplot(data, ggplot2::aes_string(x = "dim1", y = "dim2", colour = col)) +
+    mapping <- ggplot2::aes(x = dim1, y = dim2)
+    mapping[["colour"]] <- as.symbol(col)
+    p <- ggplot2::ggplot(data, mapping) +
       ggplot2::geom_point(size = pt_size, alpha = pt_alpha) +
       ggplot2::scale_color_viridis_c(option = scale_opt, name = "Expr") +
       ggplot2::ggtitle(panel_title, subtitle = subtitle) +

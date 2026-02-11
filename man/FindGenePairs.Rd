@@ -12,6 +12,7 @@ FindGenePairs(
   assay = NULL,
   slot = "data",
   cluster_col = NULL,
+  mode = c("all", "expression", "prior_only"),
   cor_method = c("pearson", "spearman", "biweight"),
   n_mi_bins = 5,
   min_cells_expressed = 10,
@@ -35,8 +36,8 @@ FindGenePairs(
 
 \item{gene}{Character; the query gene name.}
 
-\item{candidates}{Character vector of candidate partner genes.  NULL =
-auto-select from \code{VariableFeatures} or top-expressed genes.}
+\item{candidates}{Character vector of candidate partner genes.
+NULL = auto-select.}
 
 \item{n_top_genes}{Integer; max candidates when \code{candidates = NULL}.}
 
@@ -44,39 +45,33 @@ auto-select from \code{VariableFeatures} or top-expressed genes.}
 
 \item{slot}{Character; data slot.}
 
-\item{cluster_col}{Character; cluster column in meta.data (NULL = Idents).}
+\item{cluster_col}{Character; cluster column in meta.data.}
 
-\item{cor_method}{Correlation methods to use.}
+\item{mode}{Character; \code{"all"}, \code{"expression"}, or \code{"prior_only"}.}
+
+\item{cor_method}{Correlation methods.}
 
 \item{n_mi_bins}{Bins for mutual information.}
 
 \item{min_cells_expressed}{Minimum cells co-expressing both genes.}
 
-\item{use_prior}{Logical; if TRUE, compute GO/KEGG prior knowledge scores
-and bridge gene analysis. Default TRUE.}
+\item{use_prior}{Logical; compute prior knowledge metrics.}
 
-\item{organism}{Character; "mouse" or "human". Used for GO/KEGG annotation
-lookup when \code{use_prior = TRUE}.}
+\item{organism}{Character; \code{"mouse"} or \code{"human"}.}
 
-\item{custom_pairs}{Optional data.frame with columns \code{gene_a} and \code{gene_b}
-providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
-SCENIC regulons).}
+\item{custom_pairs}{Optional data.frame of custom interactions.}
 
-\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
-(KNN-smoothed correlation and neighbourhood co-expression score).}
+\item{use_neighbourhood}{Logical; compute neighbourhood metrics.}
 
-\item{neighbourhood_k}{Integer; number of nearest neighbours for the
-neighbourhood graph. Default 20.}
+\item{neighbourhood_k}{Integer; KNN k.}
 
-\item{neighbourhood_reduction}{Character; reduction to use for building the
-neighbourhood graph. Default "pca".}
+\item{neighbourhood_reduction}{Character; reduction for KNN.}
 
-\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
-0 = pure neighbour average, 1 = no smoothing. Default 0.3.}
+\item{smooth_alpha}{Numeric; self-weight for smoothing.}
 
-\item{use_spatial}{Logical; compute spatial metrics if available.}
+\item{use_spatial}{Logical; compute spatial metrics.}
 
-\item{spatial_k}{Integer; neighbourhood size for spatial metrics.}
+\item{spatial_k}{Integer; spatial neighbourhood k.}
 
 \item{n_perm}{Integer; permutations for p-values.}
 
@@ -92,31 +87,29 @@ A list with class \code{"scPairs_gene_result"}:
 \item{\code{query_gene}}{The input gene.}
 \item{\code{pairs}}{\code{data.table} of partners ranked by synergy score.}
 \item{\code{parameters}}{Analysis parameters.}
-\item{\code{n_candidates}}{Number of candidate genes tested.}
+\item{\code{n_candidates}}{Number of candidates tested.}
 \item{\code{n_cells}}{Number of cells.}
 \item{\code{has_spatial}}{Logical.}
+\item{\code{mode}}{Character.}
 }
 }
 \description{
 Given a gene of interest, \code{FindGenePairs} identifies and ranks all genes
-that act synergistically with it.  The function uses the same multi-evidence
-framework as \code{\link[=FindAllPairs]{FindAllPairs()}} but focuses computation on pairs involving the
-query gene, making it much faster for targeted queries.
+that act synergistically with it.  Uses the same multi-evidence framework
+as \code{\link[=FindAllPairs]{FindAllPairs()}} but focuses computation on pairs involving the query
+gene, making it much faster for targeted queries.
 }
 \details{
-\strong{Performance (v0.1.1):} Pearson and Spearman correlations for the query
-gene against all candidates are computed via a single vectorised matrix
-multiply instead of per-candidate loops.  The co-expression filter uses
-a vectorised matrix operation.  Biweight midcorrelation, mutual information,
-and ratio consistency are computed using batch-optimised helpers where
-possible.
+The \code{mode} parameter controls which metric layers are computed:
+\itemize{
+\item \code{"all"} (default) -- all available metrics.
+\item \code{"expression"} -- expression and neighbourhood only.
+\item \code{"prior_only"} -- prior knowledge scores only.
+}
 }
 \examples{
 \dontrun{
-# Find top 20 partners for TP53
 result <- FindGenePairs(seurat_obj, gene = "TP53", top_n = 20)
-head(result$pairs)
 PlotPairNetwork(result)
 }
-
 }

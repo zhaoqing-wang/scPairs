@@ -9,6 +9,39 @@
 NULL
 
 
+#' Extract pairs data.frame from any scPairs result type
+#'
+#' All three result classes (`scPairs_result`, `scPairs_gene_result`,
+#' `scPairs_pair_result`) and plain data.frames are supported.
+#'
+#' @param result An scPairs result object or data.frame.
+#' @param require_cols Character vector of required columns.
+#' @return A data.frame with the requested columns.
+#' @keywords internal
+.extract_pairs_df <- function(result,
+                              require_cols = c("gene1", "gene2", "synergy_score")) {
+  if (inherits(result, "scPairs_pair_result")) {
+    # AssessGenePair now stores a single-row pair_dt in $pairs
+    edges <- as.data.frame(result$pairs)
+  } else if (inherits(result, "scPairs_result") ||
+             inherits(result, "scPairs_gene_result")) {
+    edges <- as.data.frame(result$pairs)
+  } else if (is.data.frame(result)) {
+    edges <- result
+  } else {
+    stop("Input must be an scPairs result object or a data.frame.", call. = FALSE)
+  }
+
+  missing <- setdiff(require_cols, colnames(edges))
+  if (length(missing) > 0) {
+    stop("Input must contain columns: ",
+         paste(missing, collapse = ", "), call. = FALSE)
+  }
+
+  edges
+}
+
+
 #' Validate common plot inputs
 #'
 #' Checks that gene names exist and reduction is available.
@@ -18,7 +51,7 @@ NULL
 #' @param assay Assay name (NULL = default).
 #' @param slot Data slot.
 #' @param reduction Reduction name (NULL to skip check).
-#' @return A list with validated \code{assay} and \code{mat} (dense matrix).
+#' @return A list with validated \code{assay}.
 #' @keywords internal
 .validate_plot_inputs <- function(object, gene1, gene2,
                                   assay = NULL, slot = "data",

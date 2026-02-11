@@ -11,6 +11,7 @@ AssessGenePair(
   assay = NULL,
   slot = "data",
   cluster_col = NULL,
+  mode = c("all", "expression", "prior_only"),
   use_prior = TRUE,
   organism = "mouse",
   custom_pairs = NULL,
@@ -37,33 +38,27 @@ AssessGenePair(
 
 \item{cluster_col}{Character; cluster column.}
 
-\item{use_prior}{Logical; if TRUE, compute GO/KEGG prior knowledge scores
-and bridge gene analysis. Default TRUE.}
+\item{mode}{Character; \code{"all"}, \code{"expression"}, or \code{"prior_only"}.}
 
-\item{organism}{Character; "mouse" or "human". Used for GO/KEGG annotation
-lookup when \code{use_prior = TRUE}.}
+\item{use_prior}{Logical; prior knowledge scores.}
 
-\item{custom_pairs}{Optional data.frame with columns \code{gene_a} and \code{gene_b}
-providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
-SCENIC regulons).}
+\item{organism}{Character; \code{"mouse"} or \code{"human"}.}
 
-\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
-(KNN-smoothed correlation and neighbourhood co-expression score).}
+\item{custom_pairs}{Optional data.frame of custom interactions.}
 
-\item{neighbourhood_k}{Integer; number of nearest neighbours for the
-neighbourhood graph. Default 20.}
+\item{use_neighbourhood}{Logical; neighbourhood metrics.}
 
-\item{neighbourhood_reduction}{Character; reduction to use for building the
-neighbourhood graph. Default "pca".}
+\item{neighbourhood_k}{Integer; KNN k.}
 
-\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
-0 = pure neighbour average, 1 = no smoothing. Default 0.3.}
+\item{neighbourhood_reduction}{Character; reduction for KNN.}
+
+\item{smooth_alpha}{Numeric; self-weight for smoothing.}
 
 \item{use_spatial}{Logical.}
 
-\item{spatial_k}{Integer; KNN k.}
+\item{spatial_k}{Integer; spatial KNN k.}
 
-\item{n_perm}{Integer; number of permutations (default 999).}
+\item{n_perm}{Integer; permutations (default 999).}
 
 \item{verbose}{Logical.}
 }
@@ -71,6 +66,9 @@ neighbourhood graph. Default "pca".}
 A list with class \code{"scPairs_pair_result"}:
 \describe{
 \item{\code{gene1}, \code{gene2}}{The query genes.}
+\item{\code{pairs}}{Single-row \code{data.table} with all metric columns and
+\code{synergy_score}, \code{rank}, \code{confidence} (same format as \code{FindAllPairs}
+output for unified downstream processing).}
 \item{\code{metrics}}{Named list of all computed metrics.}
 \item{\code{per_cluster}}{data.frame of per-cluster correlations.}
 \item{\code{synergy_score}}{Composite score.}
@@ -79,6 +77,7 @@ A list with class \code{"scPairs_pair_result"}:
 \item{\code{jaccard_index}}{Expression overlap Jaccard index.}
 \item{\code{has_spatial}}{Logical.}
 \item{\code{n_cells}}{Integer.}
+\item{\code{mode}}{Character.}
 }
 }
 \description{
@@ -86,30 +85,26 @@ Given two genes, \code{AssessGenePair} performs an in-depth evaluation of their
 co-regulatory relationship.  In addition to the standard multi-metric
 scoring, it computes:
 \itemize{
-\item \strong{Per-cluster co-expression} -- correlation within each cell cluster,
-revealing whether synergy is global or cluster-specific.
-\item \strong{Expression distribution overlap} -- Jaccard index of the sets of cells
-expressing each gene.
-\item \strong{Permutation-based significance} -- by default 999 permutations are run
-to produce a robust p-value.
+\item \strong{Per-cluster co-expression} -- correlation within each cell cluster.
+\item \strong{Expression distribution overlap} -- Jaccard index of expressing cells.
+\item \strong{Permutation-based significance} -- 999 permutations by default.
 }
-
-For spatial data, spatial metrics (Lee's L, CLQ) are also computed.
 }
 \details{
-\strong{Performance (v0.1.1):} The permutation loop now pre-generates all
-permuted y-vectors as a matrix and uses vectorised correlation, biweight,
-MI, and ratio consistency computations.  Pearson and Spearman correlations
-for all permutations are computed via a single matrix multiply.
+The \code{mode} parameter controls which layers are scored:
+\itemize{
+\item \code{"all"} (default) -- full multi-evidence assessment.
+\item \code{"expression"} -- expression and neighbourhood metrics only.
+\item \code{"prior_only"} -- prior knowledge scores only.
+}
 }
 \examples{
 \dontrun{
 result <- AssessGenePair(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
 print(result)
 
-# Visualise
-PlotPairDimplot(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
-PlotPairScatter(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+# Prior knowledge only
+result <- AssessGenePair(seurat_obj, "Adora2a", "Ido1",
+                          mode = "prior_only", organism = "mouse")
 }
-
 }

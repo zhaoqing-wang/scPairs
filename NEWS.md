@@ -1,21 +1,42 @@
+# scPairs 0.1.6 (2026-02-11)
+
+## Unified Computation Engine & API Consolidation
+
+-   **Shared metric engine** (`compute_metrics.R`): all three discovery functions (`FindAllPairs`, `FindGenePairs`, `AssessGenePair`) now share a single `.compute_pair_metrics()` backend. Eliminates \~600 lines of duplicated neighbourhood/prior/spatial metric code that was previously copy-pasted across the three entry points.
+
+-   **`mode` parameter** for selective computation:
+
+    -   `"all"` (default) -- compute all 14 metrics.
+    -   `"expression"` -- cell-level co-expression and neighbourhood metrics only; skips prior knowledge.
+    -   `"prior_only"` -- prior knowledge scores only; no expression computation (fast pathway-based screening).
+
+-   **Unified output format**: `AssessGenePair()` now includes a `$pairs` data.table with the same column schema as `FindAllPairs()` / `FindGenePairs()` (`gene1`, `gene2`, `synergy_score`, `rank`, `confidence`, plus all metric columns). All visualization functions accept any of the three result classes interchangeably.
+
+-   **Unified visualization input**: `PlotPairNetwork()`, `PlotPairHeatmap()`, and all other plot functions now use a shared `.extract_pairs_df()` helper that dispatches on `scPairs_result`, `scPairs_gene_result`, `scPairs_pair_result`, or plain `data.frame`.
+
+-   **Removed dead dependency**: `pheatmap` dropped from `Suggests` (unused).
+
+-   **Internal refactoring**:
+
+    -   `.resolve_cluster_ids()` extracted to eliminate repeated cluster-resolution code.
+    -   `.extract_pair_vals()` for symmetric matrix lookups.
+    -   `.extract_pairs_df()` for unified result-to-data.frame conversion.
+
+------------------------------------------------------------------------
+
 # scPairs 0.1.5 (2026-02-11)
 
 ## Prior Knowledge Integration & Synergy-Aware Scoring
 
--   **New evidence layer: Prior biological knowledge** — shifts discovery from pure co-expression towards functional synergy.
-    -   `prior_score`: Jaccard similarity of GO Biological Process and KEGG pathway co-annotations between gene pairs (weight 2.0). Genes sharing many functional terms are up-weighted as synergy candidates.
-    -   `bridge_score`: Identifies pathway bridge genes — intermediary genes C that share functional annotations with BOTH genes A and B AND are expressed in the current dataset (weight 1.8). Captures indirect synergy (A→C→B) through shared pathway intermediaries, critical for detecting pairs like Adora2a-Ido1 that synergise through shared immunosuppressive pathway context.
-    -   Supports GO (Biological Process), KEGG, and user-supplied interaction databases (CellChatDB, CellPhoneDB, SCENIC regulon targets) via the `custom_pairs` parameter.
--   **New metric: `neighbourhood_synergy`** — directional paracrine enrichment score (weight 1.5). For cells highly expressing gene A, measures whether gene B's expression in their biological neighbourhood is enriched beyond expectation (and vice versa). Captures juxtacrine/paracrine-like interactions where synergy operates between neighbouring cells rather than within the same cell.
--   **New visualization: `PlotPairSynergy()`** — publication-ready 6-panel figure integrating:
-    1.  UMAP expression maps for each gene and their neighbourhood synergy signal
-    2.  Prior knowledge bridge gene network (igraph/ggraph) showing functional connections through intermediary genes
-    3.  Per-cluster expression comparison
-    4.  Multi-evidence metric bar chart (expression + neighbourhood + prior knowledge)
--   **14 total metrics** across 5 evidence layers (cell-level, neighbourhood, prior knowledge, trans-cellular, spatial).
--   All three main functions (`FindAllPairs()`, `FindGenePairs()`, `AssessGenePair()`) gain `use_prior`, `organism`, and `custom_pairs` parameters.
--   `AssessGenePair()` now returns bridge genes, shared GO/KEGG terms, and prior network object for downstream analysis.
--   **Optional dependencies:** `org.Mm.eg.db`, `org.Hs.eg.db`, `AnnotationDbi` (for prior knowledge; gracefully skipped if unavailable).
+-   **New evidence layer: Prior biological knowledge** -- shifts discovery from pure co-expression towards functional synergy.
+    -   `prior_score`: Jaccard similarity of GO-BP and KEGG pathway co-annotations (weight 2.0).
+    -   `bridge_score`: Pathway bridge genes connecting the focal pair through shared intermediaries (weight 1.8).
+    -   Supports GO, KEGG, and user-supplied interaction databases via `custom_pairs`.
+-   **New metric: `neighbourhood_synergy`** -- directional paracrine enrichment score (weight 1.5).
+-   **New visualization: `PlotPairSynergy()`** -- 6-panel figure with neighbourhood synergy, bridge gene network, cluster expression, and multi-evidence bar chart.
+-   **14 total metrics** across 5 evidence layers.
+-   All three main functions gain `use_prior`, `organism`, and `custom_pairs` parameters.
+-   **Optional dependencies:** `org.Mm.eg.db`, `org.Hs.eg.db`, `AnnotationDbi`.
 
 ------------------------------------------------------------------------
 
@@ -23,11 +44,10 @@
 
 ## Robustness & Validation
 
--   **Fixed spurious cross-cell-type correlations** with sparse genes by adding `min_pct_expressed` expression validation.
--   **Comprehensive input validation** across all analysis and plotting functions with informative error messages.
--   **Code consolidation** — unified internal dispatch functions (`.compute_*()`) reduce duplication by \~40%; new centralized schema (`schema.R`) and shared plot utilities (`plot_utils.R`).
--   **Sparse matrix optimization** — KNN smoothing defers densification; vectorised cross-cell-type binning.
--   16 new tests (115 total).
+-   Fixed spurious cross-cell-type correlations with sparse genes via `min_pct_expressed`.
+-   Comprehensive input validation with informative error messages.
+-   Code consolidation: unified `.compute_*()` dispatch functions; centralized schema (`schema.R`); shared plot utilities (`plot_utils.R`).
+-   Sparse matrix optimization for KNN smoothing.
 
 ------------------------------------------------------------------------
 
@@ -35,9 +55,8 @@
 
 ## Cross-Cell-Type Interaction Metric
 
--   **New metric: `cross_celltype_score`** — detects trans-cellular synergies (paracrine signalling, ligand-receptor pairs) by correlating gene A in one cell type with gene B in neighbouring cells of a different type. Score = geometric mean of bidirectional correlations; weight 1.5.
--   **New visualization: `PlotPairCrossType()`** — heatmap of directed cell-type pair correlations.
--   Integrated into `FindAllPairs()`, `FindGenePairs()`, `AssessGenePair()`, and permutation testing.
+-   **New metric: `cross_celltype_score`** -- trans-cellular synergy detection via micro-environment binning (weight 1.5).
+-   **New visualization: `PlotPairCrossType()`** -- directed cell-type pair heatmap.
 
 ------------------------------------------------------------------------
 
@@ -45,12 +64,8 @@
 
 ## Neighbourhood-Aware Metrics
 
--   **3 new metrics** to overcome scRNA-seq dropout:
-    -   `smoothed_cor` — Pearson correlation on KNN-smoothed expression (weight 1.5)
-    -   `neighbourhood_score` — average partner expression in KNN neighbours (weight 1.5)
-    -   `cluster_cor` — cluster-level pseudo-bulk correlation (weight 1.2)
--   **New visualizations:** `PlotPairSmoothed()` (6-panel raw + smoothed UMAP), `PlotPairSummary()` (comprehensive multi-panel figure).
--   All three main functions gain `use_neighbourhood`, `neighbourhood_k`, and `smooth_alpha` parameters.
+-   3 new metrics: `smoothed_cor`, `neighbourhood_score`, `cluster_cor`.
+-   New visualizations: `PlotPairSmoothed()`, `PlotPairSummary()`.
 
 ------------------------------------------------------------------------
 
@@ -58,12 +73,7 @@
 
 ## Performance Optimizations
 
--   **5-20x speedups** through vectorisation of all core metric computations:
-    -   Co-expression filter via `tcrossprod()` (\~30x)
-    -   Biweight midcorrelation via matrix kernel operations (\~18x)
-    -   Mutual information via pre-binned `outer()` (\~4x)
-    -   Lee's L and CLQ via sparse matrix multiply (\~15x)
-    -   Permutation p-values vectorised across all pairs
+-   5--20x speedups through vectorisation of all core metric computations.
 
 ------------------------------------------------------------------------
 
@@ -71,9 +81,6 @@
 
 ## Initial Release
 
--   **3 core workflows:** `FindAllPairs()` (global discovery), `FindGenePairs()` (query-centric), `AssessGenePair()` (detailed assessment).
--   **7 metrics:** Pearson, Spearman, biweight midcorrelation, mutual information, ratio consistency, Lee's L, co-location quotient (CLQ).
--   **Score integration:** rank-normalised weighted summation with permutation p-values and FDR correction.
--   **6 visualization functions:** `PlotPairNetwork()`, `PlotPairHeatmap()`, `PlotPairDimplot()`, `PlotPairSpatial()`, `PlotPairViolin()`, `PlotPairScatter()`.
--   Supports Seurat v4/v5, scRNA-seq and spatial transcriptomics (Visium, MERFISH, Slide-seq).
--   44 unit tests.
+-   3 core workflows: `FindAllPairs()`, `FindGenePairs()`, `AssessGenePair()`.
+-   7 metrics: Pearson, Spearman, biweight, MI, ratio consistency, Lee's L, CLQ.
+-   6 visualization functions.

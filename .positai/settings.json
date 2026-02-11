@@ -1,0 +1,10 @@
+{
+  "permission": {
+    "bash": {
+      "cd \"D:\\Laboratory\\Codes\\scPairs\"": "allow",
+      "ls *": "allow",
+      "wc *": "allow",
+      "sort *": "allow"
+    }
+  }
+}

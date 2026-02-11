@@ -2,46 +2,37 @@
 #'
 #' @description
 #' Given a gene of interest, `FindGenePairs` identifies and ranks all genes
-#' that act synergistically with it.  The function uses the same multi-evidence
-#' framework as [FindAllPairs()] but focuses computation on pairs involving the
-#' query gene, making it much faster for targeted queries.
+#' that act synergistically with it.  Uses the same multi-evidence framework
+#' as [FindAllPairs()] but focuses computation on pairs involving the query
+#' gene, making it much faster for targeted queries.
 #'
 #' @details
-#' **Performance (v0.1.1):** Pearson and Spearman correlations for the query
-#' gene against all candidates are computed via a single vectorised matrix
-#' multiply instead of per-candidate loops.  The co-expression filter uses
-#' a vectorised matrix operation.  Biweight midcorrelation, mutual information,
-#' and ratio consistency are computed using batch-optimised helpers where
-#' possible.
+#' The `mode` parameter controls which metric layers are computed:
+#' * `"all"` (default) -- all available metrics.
+#' * `"expression"` -- expression and neighbourhood only.
+#' * `"prior_only"` -- prior knowledge scores only.
 #'
 #' @param object A Seurat object.
 #' @param gene Character; the query gene name.
-#' @param candidates Character vector of candidate partner genes.  NULL =
-#'     auto-select from `VariableFeatures` or top-expressed genes.
+#' @param candidates Character vector of candidate partner genes.
+#'     NULL = auto-select.
 #' @param n_top_genes Integer; max candidates when `candidates = NULL`.
 #' @param assay Character; assay name.
 #' @param slot Character; data slot.
-#' @param cluster_col Character; cluster column in meta.data (NULL = Idents).
-#' @param cor_method Correlation methods to use.
+#' @param cluster_col Character; cluster column in meta.data.
+#' @param mode Character; `"all"`, `"expression"`, or `"prior_only"`.
+#' @param cor_method Correlation methods.
 #' @param n_mi_bins Bins for mutual information.
 #' @param min_cells_expressed Minimum cells co-expressing both genes.
-#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
-#'     (KNN-smoothed correlation and neighbourhood co-expression score).
-#' @param neighbourhood_k Integer; number of nearest neighbours for the
-#'     neighbourhood graph. Default 20.
-#' @param neighbourhood_reduction Character; reduction to use for building the
-#'     neighbourhood graph. Default "pca".
-#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
-#'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
-#' @param use_spatial Logical; compute spatial metrics if available.
-#' @param spatial_k Integer; neighbourhood size for spatial metrics.
-#' @param use_prior Logical; if TRUE, compute GO/KEGG prior knowledge scores
-#'     and bridge gene analysis. Default TRUE.
-#' @param organism Character; "mouse" or "human". Used for GO/KEGG annotation
-#'     lookup when `use_prior = TRUE`.
-#' @param custom_pairs Optional data.frame with columns `gene_a` and `gene_b`
-#'     providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
-#'     SCENIC regulons).
+#' @param use_prior Logical; compute prior knowledge metrics.
+#' @param organism Character; `"mouse"` or `"human"`.
+#' @param custom_pairs Optional data.frame of custom interactions.
+#' @param use_neighbourhood Logical; compute neighbourhood metrics.
+#' @param neighbourhood_k Integer; KNN k.
+#' @param neighbourhood_reduction Character; reduction for KNN.
+#' @param smooth_alpha Numeric; self-weight for smoothing.
+#' @param use_spatial Logical; compute spatial metrics.
+#' @param spatial_k Integer; spatial neighbourhood k.
 #' @param n_perm Integer; permutations for p-values.
 #' @param weights Named numeric; metric weights.
 #' @param top_n Integer; return only top partners.
@@ -52,21 +43,19 @@
 #'   \item{`query_gene`}{The input gene.}
 #'   \item{`pairs`}{`data.table` of partners ranked by synergy score.}
 #'   \item{`parameters`}{Analysis parameters.}
-#'   \item{`n_candidates`}{Number of candidate genes tested.}
+#'   \item{`n_candidates`}{Number of candidates tested.}
 #'   \item{`n_cells`}{Number of cells.}
 #'   \item{`has_spatial`}{Logical.}
+#'   \item{`mode`}{Character.}
 #' }
 #'
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#' # Find top 20 partners for TP53
 #' result <- FindGenePairs(seurat_obj, gene = "TP53", top_n = 20)
-#' head(result$pairs)
 #' PlotPairNetwork(result)
 #' }
-#'
 FindGenePairs <- function(object,
                           gene,
                           candidates              = NULL,
@@ -74,6 +63,7 @@ FindGenePairs <- function(object,
                           assay                   = NULL,
                           slot                    = "data",
                           cluster_col             = NULL,
+                          mode                    = c("all", "expression", "prior_only"),
                           cor_method              = c("pearson", "spearman", "biweight"),
                           n_mi_bins               = 5,
                           min_cells_expressed     = 10,
@@ -91,25 +81,33 @@ FindGenePairs <- function(object,
                           top_n                   = NULL,
                           verbose                 = TRUE) {
 
+  mode <- match.arg(mode)
+
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
-
   n_cells_total <- ncol(object)
-  .validate_cor_method(cor_method)
-  .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
-  .validate_percentage(smooth_alpha, "smooth_alpha")
-  if (use_neighbourhood) {
-    .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
+
+  if (mode != "prior_only") {
+    .validate_cor_method(cor_method)
+    .validate_min_cells_expressed(min_cells_expressed, n_cells_total)
+    .validate_percentage(smooth_alpha, "smooth_alpha")
+    if (use_neighbourhood) {
+      .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
+    }
   }
-  if (n_perm > 0) {
-    .validate_n_perm(n_perm)
+  if (n_perm > 0) .validate_n_perm(n_perm)
+
+  if (mode == "expression")  use_prior <- FALSE
+  if (mode == "prior_only") {
+    use_neighbourhood <- FALSE
+    use_spatial       <- FALSE
   }
 
-  # Validate query gene exists
   .validate_features(gene, object, assay)
 
-  # Select candidates
-  candidates <- .select_features(object, candidates, n_top = n_top_genes, assay = assay)
+  # --- Select candidates ---
+  candidates <- .select_features(object, candidates, n_top = n_top_genes,
+                                 assay = assay)
   candidates <- setdiff(candidates, gene)
   if (length(candidates) == 0) {
     stop("No candidate partner genes available.", call. = FALSE)
@@ -119,38 +117,25 @@ FindGenePairs <- function(object,
   .msg("Querying partners for ", gene, " against ", length(candidates),
        " candidates.", verbose = verbose)
 
-  # Extract data
-  mat <- .get_expression_matrix(object, features = features, assay = assay, slot = slot)
+  mat <- .get_expression_matrix(object, features = features,
+                                assay = assay, slot = slot)
+  cluster_ids <- .resolve_cluster_ids(object, cluster_col)
 
-  # Cluster IDs
-  if (!is.null(cluster_col)) {
-    cluster_ids <- as.factor(object@meta.data[[cluster_col]])
-  } else {
-    cluster_ids <- as.factor(Seurat::Idents(object))
-  }
-
-  # ------------------------------------------------------------------
-  # Build pair table: gene vs. each candidate
-  # ------------------------------------------------------------------
+  # --- Build pair table ---
   pair_dt <- data.table::data.table(
     gene1 = rep(gene, length(candidates)),
     gene2 = candidates
   )
 
-  # Convert to dense for computation
-  if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
-    mat_dense <- as.matrix(mat)
-  } else {
-    mat_dense <- mat
-  }
-
-  n_cells <- ncol(mat_dense)
-  gene_vec <- mat_dense[gene, ]
-
-  # --- Filter by co-expression (vectorised) ---
-  if (min_cells_expressed > 0) {
+  # --- Co-expression filter (vectorised) ---
+  if (mode != "prior_only" && min_cells_expressed > 0) {
+    if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
+      mat_dense <- as.matrix(mat)
+    } else {
+      mat_dense <- mat
+    }
+    gene_vec <- mat_dense[gene, ]
     gene_nonzero <- gene_vec > 0
-    # Count co-expression for all candidates at once
     cand_mat <- mat_dense[candidates, , drop = FALSE]
     cand_nonzero <- cand_mat > 0
     storage.mode(cand_nonzero) <- "double"
@@ -163,160 +148,84 @@ FindGenePairs <- function(object,
          verbose = verbose)
     if (nrow(pair_dt) == 0) {
       warning("No pairs passed the co-expression filter.", call. = FALSE)
-      return(.build_gene_result(pair_dt, gene, candidates, object, FALSE, list()))
+      return(.build_gene_result(pair_dt, gene, candidates, object, FALSE,
+                                list(), mode))
     }
-    cand_mat <- cand_mat[candidates, , drop = FALSE]
-  } else {
+  }
+
+  # --- Vectorised correlations for query gene ---
+  if (mode != "prior_only" && nrow(pair_dt) > 0) {
+    if (!exists("mat_dense", inherits = FALSE)) {
+      mat_dense <- if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix"))
+        as.matrix(mat) else mat
+    }
+    gene_vec <- mat_dense[gene, ]
     cand_mat <- mat_dense[candidates, , drop = FALSE]
-  }
+    n_cand <- length(candidates)
 
-  n_cand <- length(candidates)
-
-  # --- Pearson (vectorised: cor(gene_vec, cand_mat_t)) ---
-  if ("pearson" %in% cor_method) {
-    .msg("  Pearson correlation ...", verbose = verbose)
-    cor_vals <- as.numeric(stats::cor(gene_vec, t(cand_mat)))
-    pair_dt[, cor_pearson := cor_vals]
-  }
-
-  # --- Spearman (vectorised via ranks) ---
-  if ("spearman" %in% cor_method) {
-    .msg("  Spearman correlation ...", verbose = verbose)
-    gene_rank <- rank(gene_vec)
-    cand_ranks <- t(apply(cand_mat, 1, rank))
-    cor_sp <- as.numeric(stats::cor(gene_rank, t(cand_ranks)))
-    pair_dt[, cor_spearman := cor_sp]
-  }
-
-  # --- Biweight (per-candidate, using fast .bicor) ---
-  if ("biweight" %in% cor_method) {
-    .msg("  Biweight midcorrelation ...", verbose = verbose)
-    pair_dt[, cor_biweight := vapply(seq_len(n_cand), function(k) {
-      .bicor(gene_vec, cand_mat[k, ])
-    }, numeric(1))]
-  }
-
-  # --- Mutual information ---
-  if (n_mi_bins > 0) {
-    .msg("  Mutual information ...", verbose = verbose)
-    pair_dt[, mi_score := vapply(seq_len(n_cand), function(k) {
-      .mutual_info(gene_vec, cand_mat[k, ], n_bins = n_mi_bins)
-    }, numeric(1))]
-  }
-
-  # --- Ratio consistency ---
-  if (!is.null(cluster_ids)) {
-    .msg("  Ratio consistency ...", verbose = verbose)
-    pair_dt[, ratio_consistency := vapply(seq_len(n_cand), function(k) {
-      .ratio_consistency(gene_vec, cand_mat[k, ], cluster_ids)
-    }, numeric(1))]
-  }
-
-  # --- Neighbourhood metrics (v0.2.0) ---
-  has_neighbourhood <- FALSE
-  if (use_neighbourhood) {
-    W <- tryCatch(
-      .build_knn_graph(object, reduction = neighbourhood_reduction,
-                       k = neighbourhood_k),
-      error = function(e) {
-        .msg("Could not build KNN graph: ", conditionMessage(e),
-             ". Skipping neighbourhood metrics.", verbose = verbose)
-        NULL
-      }
-    )
-
-    if (!is.null(W)) {
-      has_neighbourhood <- TRUE
-      .msg("  KNN-smoothed correlation ...", verbose = verbose)
-      pair_dt[, smoothed_cor := .smoothed_cor_batch(
-        mat, pair_dt, W, alpha = smooth_alpha, method = "pearson")]
-
-      .msg("  Neighbourhood co-expression score ...", verbose = verbose)
-      pair_dt[, neighbourhood_score := .neighbourhood_coexpr_batch(
-        mat, pair_dt, W)]
-
-      .msg("  Cluster-level correlation ...", verbose = verbose)
-      pair_dt[, cluster_cor := .cluster_cor_batch(mat, cluster_ids, pair_dt)]
-
-      .msg("  Cross-cell-type interaction score ...", verbose = verbose)
-      embed <- tryCatch(
-        Seurat::Embeddings(object, reduction = neighbourhood_reduction),
-        error = function(e) NULL
-      )
-      if (!is.null(embed)) {
-        dims_use <- seq_len(min(30, ncol(embed)))
-        pair_dt[, cross_celltype_score := .cross_celltype_batch(
-          mat, pair_dt, cluster_ids, embed[, dims_use, drop = FALSE])]
-      }
+    if ("pearson" %in% cor_method) {
+      .msg("  Pearson correlation ...", verbose = verbose)
+      pair_dt[, cor_pearson := as.numeric(stats::cor(gene_vec, t(cand_mat)))]
+    }
+    if ("spearman" %in% cor_method) {
+      .msg("  Spearman correlation ...", verbose = verbose)
+      gene_rank <- rank(gene_vec)
+      cand_ranks <- t(apply(cand_mat, 1, rank))
+      pair_dt[, cor_spearman := as.numeric(stats::cor(gene_rank, t(cand_ranks)))]
+    }
+    if ("biweight" %in% cor_method) {
+      .msg("  Biweight midcorrelation ...", verbose = verbose)
+      pair_dt[, cor_biweight := vapply(seq_len(n_cand), function(k) {
+        .bicor(gene_vec, cand_mat[k, ])
+      }, numeric(1))]
+    }
+    if (n_mi_bins > 0) {
+      .msg("  Mutual information ...", verbose = verbose)
+      pair_dt[, mi_score := vapply(seq_len(n_cand), function(k) {
+        .mutual_info(gene_vec, cand_mat[k, ], n_bins = n_mi_bins)
+      }, numeric(1))]
+    }
+    if (!is.null(cluster_ids)) {
+      .msg("  Ratio consistency ...", verbose = verbose)
+      pair_dt[, ratio_consistency := vapply(seq_len(n_cand), function(k) {
+        .ratio_consistency(gene_vec, cand_mat[k, ], cluster_ids)
+      }, numeric(1))]
     }
   }
 
-  # --- Neighbourhood synergy score ---
-  if (has_neighbourhood && !is.null(W)) {
-    .msg("  Neighbourhood synergy score ...", verbose = verbose)
-    pair_dt[, neighbourhood_synergy := .neighbourhood_synergy_batch(mat, pair_dt, W)]
-  }
-
-  # --- Prior knowledge metrics ---
-  prior_net <- NULL
-  if (use_prior) {
-    prior_net <- tryCatch(
-      .build_prior_network(organism = organism, genes = features,
-                           custom_pairs = custom_pairs, verbose = verbose),
-      error = function(e) {
-        .msg("Prior knowledge not available: ", conditionMessage(e),
-             verbose = verbose)
-        NULL
-      }
-    )
-
-    if (!is.null(prior_net) && prior_net$n_terms > 0) {
-      .msg("  Prior knowledge scores ...", verbose = verbose)
-      pair_dt[, prior_score := .prior_score_batch(pair_dt, prior_net)]
-
-      expressed_genes <- features[features %in% rownames(mat)]
-      bridge_res <- .bridge_score_batch(pair_dt, prior_net, expressed_genes)
-      pair_dt[, bridge_score := bridge_res$scores]
-    }
-  }
-
-  # --- Spatial metrics ---
-  has_spatial <- FALSE
-  if (use_spatial && .has_spatial(object)) {
-    has_spatial <- TRUE
-    coords <- .get_spatial_coords(object)
-    pair_dt <- .compute_spatial_lee(coords, mat, pair_dt, k = spatial_k,
-                                    n_perm = min(n_perm, 199), verbose = verbose)
-    pair_dt <- .compute_spatial_clq(coords, mat, pair_dt, k = spatial_k,
-                                     verbose = verbose)
-  }
-
-  # --- Score integration ---
-  pair_dt <- .integrate_scores(
-    pair_dt     = pair_dt,
-    weights     = weights,
-    n_perm      = n_perm,
-    mat         = mat,
-    cluster_ids = cluster_ids,
-    coords      = if (has_spatial) coords else NULL,
-    spatial_k   = spatial_k,
-    verbose     = verbose
+  # --- Remaining metrics via shared engine (expression already computed) ---
+  engine <- .compute_pair_metrics(
+    mat = mat, pair_dt = pair_dt, cluster_ids = cluster_ids,
+    object = object, mode = mode,
+    cor_method = character(0), n_mi_bins = 0,
+    min_cells_expressed = 0,
+    use_neighbourhood = use_neighbourhood,
+    neighbourhood_k = neighbourhood_k,
+    neighbourhood_reduction = neighbourhood_reduction,
+    smooth_alpha = smooth_alpha,
+    use_prior = use_prior, organism = organism,
+    custom_pairs = custom_pairs,
+    use_spatial = use_spatial, spatial_k = spatial_k,
+    n_perm = n_perm, weights = weights, verbose = verbose
   )
 
-  data.table::setorder(pair_dt, rank)
+  pair_dt <- engine$pair_dt
+
   if (!is.null(top_n) && top_n < nrow(pair_dt)) {
     pair_dt <- pair_dt[seq_len(top_n), ]
   }
 
-  .build_gene_result(pair_dt, gene, candidates, object, has_spatial,
+  .build_gene_result(pair_dt, gene, candidates, object, engine$has_spatial,
                      list(cor_method = cor_method, n_mi_bins = n_mi_bins,
                           min_cells_expressed = min_cells_expressed,
-                          spatial_k = spatial_k, n_perm = n_perm))
+                          spatial_k = spatial_k, n_perm = n_perm),
+                     mode)
 }
 
 
 #' @keywords internal
-.build_gene_result <- function(pair_dt, gene, candidates, object, has_spatial, params) {
+.build_gene_result <- function(pair_dt, gene, candidates, object,
+                               has_spatial, params, mode = "all") {
   structure(
     list(
       query_gene   = gene,
@@ -324,7 +233,8 @@ FindGenePairs <- function(object,
       parameters   = params,
       n_candidates = length(candidates),
       n_cells      = ncol(object),
-      has_spatial   = has_spatial
+      has_spatial   = has_spatial,
+      mode         = mode
     ),
     class = "scPairs_gene_result"
   )
@@ -340,6 +250,7 @@ print.scPairs_gene_result <- function(x, ...) {
   cat(sprintf("  Partners found : %d\n", nrow(x$pairs)))
   cat(sprintf("  Cells          : %d\n", x$n_cells))
   cat(sprintf("  Spatial metrics: %s\n", ifelse(x$has_spatial, "Yes", "No")))
+  if (!is.null(x$mode)) cat(sprintf("  Mode           : %s\n", x$mode))
   if (nrow(x$pairs) > 0) {
     cat("  Top 5 partners:\n")
     top5 <- utils::head(x$pairs, 5)

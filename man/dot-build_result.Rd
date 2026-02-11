@@ -4,7 +4,7 @@
 \alias{.build_result}
 \title{Build standardised scPairs result object}
 \usage{
-.build_result(pair_dt, features, object, has_spatial, params)
+.build_result(pair_dt, features, object, has_spatial, params, mode = "all")
 }
 \description{
 Build standardised scPairs result object

@@ -2,7 +2,7 @@
 % Please edit documentation in R/find_all_pairs.R
 \name{FindAllPairs}
 \alias{FindAllPairs}
-\title{Discover All Synergistic Gene Pairs in a Single-Cell or Spatial Dataset}
+\title{Discover All Synergistic Gene Pairs}
 \usage{
 FindAllPairs(
   object,
@@ -11,6 +11,7 @@ FindAllPairs(
   assay = NULL,
   slot = "data",
   cluster_col = NULL,
+  mode = c("all", "expression", "prior_only"),
   cor_method = c("pearson", "spearman", "biweight"),
   n_mi_bins = 5,
   min_cells_expressed = 10,
@@ -32,9 +33,9 @@ FindAllPairs(
 \arguments{
 \item{object}{A Seurat object (scRNA-seq or spatial).}
 
-\item{features}{Character vector of gene names to consider.  NULL (default)
-uses Seurat \code{VariableFeatures}; if unavailable, selects the top
-\code{n_top_genes} by mean expression.}
+\item{features}{Character vector of gene names to consider.
+NULL (default) uses Seurat \code{VariableFeatures}; if unavailable, selects
+the top \code{n_top_genes} by mean expression.}
 
 \item{n_top_genes}{Integer; maximum number of genes to analyse when
 \code{features = NULL}.  Default 2000.}
@@ -43,8 +44,10 @@ uses Seurat \code{VariableFeatures}; if unavailable, selects the top
 
 \item{slot}{Character; data slot.  Default \code{"data"} (log-normalised).}
 
-\item{cluster_col}{Character; column in \code{meta.data} with cluster IDs
-(for ratio-consistency).  NULL = use \code{Idents(object)}.}
+\item{cluster_col}{Character; column in \code{meta.data} with cluster IDs.
+NULL = use \code{Idents(object)}.}
+
+\item{mode}{Character; \code{"all"}, \code{"expression"}, or \code{"prior_only"}.}
 
 \item{cor_method}{Character vector; correlation methods to compute.
 Default \code{c("pearson", "spearman", "biweight")}.}
@@ -52,48 +55,34 @@ Default \code{c("pearson", "spearman", "biweight")}.}
 \item{n_mi_bins}{Integer; bins for mutual information.  0 = skip MI.}
 
 \item{min_cells_expressed}{Integer; minimum co-expressing cells to keep a
-pair. Default 10.  Set to 0 to retain all pairs (recommended when
-neighbourhood metrics are enabled).}
+pair.  Default 10.}
 
-\item{use_prior}{Logical; integrate prior knowledge (GO/KEGG pathway
-co-annotation and bridge genes).  Default TRUE.  Requires
-\code{org.Mm.eg.db} or \code{org.Hs.eg.db} and \code{AnnotationDbi}.}
+\item{use_prior}{Logical; integrate prior knowledge (GO/KEGG).  Default TRUE.}
 
-\item{organism}{Character; \code{"mouse"} or \code{"human"} for prior
-knowledge lookup.  Default \code{"mouse"}.}
+\item{organism}{Character; \code{"mouse"} or \code{"human"}.}
 
-\item{custom_pairs}{Optional data.frame with columns \code{gene1},
-\code{gene2} for user-supplied interactions (CellChatDB, etc.).}
+\item{custom_pairs}{Optional data.frame with columns \code{gene1}, \code{gene2}.}
 
-\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics
-(KNN-smoothed correlation, neighbourhood co-expression score, and
-cluster-level pseudo-bulk correlation).  Default TRUE.  These metrics
-are critical for detecting synergistic pairs where cell-level
-co-expression is absent due to sparsity.}
-
-\item{neighbourhood_k}{Integer; number of nearest neighbours for the
-neighbourhood graph.  Default 20.}
-
-\item{neighbourhood_reduction}{Character; reduction to use for building the
-KNN graph.  Default \code{"pca"}.}
-
-\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.
-0 = pure neighbour average, 1 = no smoothing.  Default 0.3.}
-
-\item{use_spatial}{Logical; compute spatial metrics when available.
+\item{use_neighbourhood}{Logical; compute neighbourhood-aware metrics.
 Default TRUE.}
 
-\item{spatial_k}{Integer; KNN neighbourhood size for spatial analyses.}
+\item{neighbourhood_k}{Integer; KNN k.  Default 20.}
 
-\item{n_perm}{Integer; permutations for p-values.  0 = skip (fast mode).}
+\item{neighbourhood_reduction}{Character; reduction for KNN.  Default \code{"pca"}.}
 
-\item{weights}{Named numeric vector; metric weights for score integration.
-NULL = use defaults.}
+\item{smooth_alpha}{Numeric in [0,1]; self-weight for KNN smoothing.}
 
-\item{top_n}{Integer or NULL; return only the top \emph{n} pairs by synergy
-score.  NULL = return all.}
+\item{use_spatial}{Logical; compute spatial metrics when available.}
 
-\item{verbose}{Logical; print progress.}
+\item{spatial_k}{Integer; spatial KNN k.}
+
+\item{n_perm}{Integer; permutations for p-values.  0 = skip.}
+
+\item{weights}{Named numeric; metric weights for score integration.}
+
+\item{top_n}{Integer or NULL; return only top \emph{n} pairs.}
+
+\item{verbose}{Logical.}
 }
 \value{
 A list with class \code{"scPairs_result"} containing:
@@ -101,50 +90,40 @@ A list with class \code{"scPairs_result"} containing:
 \item{\code{pairs}}{\code{data.table} of gene pairs with all metric columns,
 \code{synergy_score}, \code{rank}, \code{p_value} (if permutation), \code{p_adj},
 \code{confidence}.}
-\item{\code{parameters}}{List of analysis parameters for reproducibility.}
+\item{\code{parameters}}{List of analysis parameters.}
 \item{\code{n_genes}}{Number of genes analysed.}
 \item{\code{n_cells}}{Number of cells.}
-\item{\code{has_spatial}}{Logical; whether spatial metrics were computed.}
+\item{\code{has_spatial}}{Logical.}
+\item{\code{mode}}{Character; the mode used.}
 }
 }
 \description{
 The primary discovery function of \strong{scPairs}.
-Given a Seurat object (scRNA-seq or spatial transcriptomics), \code{FindAllPairs}
-identifies statistically significant synergistic gene pairs by integrating
-multiple lines of evidence:
-\enumerate{
-\item \strong{Co-expression} -- Pearson, Spearman, and biweight midcorrelation
-capture linear, rank-based, and robust associations.
-\item \strong{Mutual information} -- detects non-linear dependencies missed by
-correlation.
-\item \strong{Ratio consistency} -- tests whether the expression ratio of two genes
-is stable across cell clusters, a hallmark of genuine co-regulation.
-\item \strong{Spatial co-variation} (spatial data only) -- Lee's L statistic measures
-bivariate spatial autocorrelation; the co-location quotient (CLQ) tests
-whether expressing cells are spatially attracted.
-}
-
-Metrics are rank-normalised and combined via weighted summation.
-Optional permutation testing provides empirical p-values.
+Given a Seurat object, \code{FindAllPairs} identifies synergistic gene pairs by
+integrating multiple lines of evidence: co-expression, neighbourhood
+smoothing, prior biological knowledge, and spatial co-variation.
 }
 \details{
-\strong{Performance (v0.1.1):} All core metric computations are vectorised.
-The co-expression filter uses matrix crossproduct, biweight midcorrelation
-is computed as a full matrix via vectorised kernel operations, and spatial
-metrics use sparse matrix multiplication for the spatial lag.  These changes
-yield 5--20x speedups on datasets with >500 genes.
+Metrics are rank-normalised and combined via weighted summation.
+Optional permutation testing provides empirical p-values.
+
+The \code{mode} parameter controls which metric layers are computed:
+\itemize{
+\item \code{"all"} (default) -- compute all available metrics.
+\item \code{"expression"} -- expression and neighbourhood metrics only (no prior
+knowledge).
+\item \code{"prior_only"} -- prior knowledge scores only (fast).
+}
 }
 \examples{
 \dontrun{
-# Discover top 100 synergistic pairs (fast, no permutation)
+# Default: all metrics
 result <- FindAllPairs(seurat_obj, n_top_genes = 500, top_n = 100)
-head(result$pairs)
 
-# Full analysis with permutation p-values
-result <- FindAllPairs(seurat_obj, n_perm = 999)
+# Expression only (skip prior knowledge)
+result <- FindAllPairs(seurat_obj, mode = "expression")
 
-# Visualise the network
-PlotPairNetwork(result)
+# Prior knowledge only (fast screening)
+result <- FindAllPairs(seurat_obj, mode = "prior_only")
 }
-
 }

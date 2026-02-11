@@ -5,20 +5,15 @@
 #' co-regulatory relationship.  In addition to the standard multi-metric
 #' scoring, it computes:
 #'
-#' * **Per-cluster co-expression** -- correlation within each cell cluster,
-#'   revealing whether synergy is global or cluster-specific.
-#' * **Expression distribution overlap** -- Jaccard index of the sets of cells
-#'   expressing each gene.
-#' * **Permutation-based significance** -- by default 999 permutations are run
-#'   to produce a robust p-value.
-#'
-#' For spatial data, spatial metrics (Lee's L, CLQ) are also computed.
+#' * **Per-cluster co-expression** -- correlation within each cell cluster.
+#' * **Expression distribution overlap** -- Jaccard index of expressing cells.
+#' * **Permutation-based significance** -- 999 permutations by default.
 #'
 #' @details
-#' **Performance (v0.1.1):** The permutation loop now pre-generates all
-#' permuted y-vectors as a matrix and uses vectorised correlation, biweight,
-#' MI, and ratio consistency computations.  Pearson and Spearman correlations
-#' for all permutations are computed via a single matrix multiply.
+#' The `mode` parameter controls which layers are scored:
+#' * `"all"` (default) -- full multi-evidence assessment.
+#' * `"expression"` -- expression and neighbourhood metrics only.
+#' * `"prior_only"` -- prior knowledge scores only.
 #'
 #' @param object A Seurat object.
 #' @param gene1 Character; first gene.
@@ -26,29 +21,25 @@
 #' @param assay Character; assay name.
 #' @param slot Character; data slot.
 #' @param cluster_col Character; cluster column.
-#' @param use_neighbourhood Logical; compute neighbourhood-aware metrics
-#'     (KNN-smoothed correlation and neighbourhood co-expression score).
-#' @param neighbourhood_k Integer; number of nearest neighbours for the
-#'     neighbourhood graph. Default 20.
-#' @param neighbourhood_reduction Character; reduction to use for building the
-#'     neighbourhood graph. Default "pca".
-#' @param smooth_alpha Numeric in \[0,1\]; self-weight for KNN smoothing.
-#'     0 = pure neighbour average, 1 = no smoothing. Default 0.3.
+#' @param mode Character; `"all"`, `"expression"`, or `"prior_only"`.
+#' @param use_neighbourhood Logical; neighbourhood metrics.
+#' @param neighbourhood_k Integer; KNN k.
+#' @param neighbourhood_reduction Character; reduction for KNN.
+#' @param smooth_alpha Numeric; self-weight for smoothing.
 #' @param use_spatial Logical.
-#' @param spatial_k Integer; KNN k.
-#' @param use_prior Logical; if TRUE, compute GO/KEGG prior knowledge scores
-#'     and bridge gene analysis. Default TRUE.
-#' @param organism Character; "mouse" or "human". Used for GO/KEGG annotation
-#'     lookup when `use_prior = TRUE`.
-#' @param custom_pairs Optional data.frame with columns `gene_a` and `gene_b`
-#'     providing custom interaction pairs (e.g., from CellChatDB, CellPhoneDB,
-#'     SCENIC regulons).
-#' @param n_perm Integer; number of permutations (default 999).
+#' @param spatial_k Integer; spatial KNN k.
+#' @param use_prior Logical; prior knowledge scores.
+#' @param organism Character; `"mouse"` or `"human"`.
+#' @param custom_pairs Optional data.frame of custom interactions.
+#' @param n_perm Integer; permutations (default 999).
 #' @param verbose Logical.
 #'
 #' @return A list with class `"scPairs_pair_result"`:
 #' \describe{
 #'   \item{`gene1`, `gene2`}{The query genes.}
+#'   \item{`pairs`}{Single-row `data.table` with all metric columns and
+#'     `synergy_score`, `rank`, `confidence` (same format as `FindAllPairs`
+#'     output for unified downstream processing).}
 #'   \item{`metrics`}{Named list of all computed metrics.}
 #'   \item{`per_cluster`}{data.frame of per-cluster correlations.}
 #'   \item{`synergy_score`}{Composite score.}
@@ -57,6 +48,7 @@
 #'   \item{`jaccard_index`}{Expression overlap Jaccard index.}
 #'   \item{`has_spatial`}{Logical.}
 #'   \item{`n_cells`}{Integer.}
+#'   \item{`mode`}{Character.}
 #' }
 #'
 #' @export
@@ -66,17 +58,17 @@
 #' result <- AssessGenePair(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
 #' print(result)
 #'
-#' # Visualise
-#' PlotPairDimplot(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
-#' PlotPairScatter(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+#' # Prior knowledge only
+#' result <- AssessGenePair(seurat_obj, "Adora2a", "Ido1",
+#'                           mode = "prior_only", organism = "mouse")
 #' }
-#'
 AssessGenePair <- function(object,
                            gene1,
                            gene2,
                            assay                   = NULL,
                            slot                    = "data",
                            cluster_col             = NULL,
+                           mode                    = c("all", "expression", "prior_only"),
                            use_prior               = TRUE,
                            organism                = "mouse",
                            custom_pairs            = NULL,
@@ -89,24 +81,30 @@ AssessGenePair <- function(object,
                            n_perm                  = 999,
                            verbose                 = TRUE) {
 
+  mode <- match.arg(mode)
+
   .validate_seurat(object)
   assay <- assay %||% Seurat::DefaultAssay(object)
-
   n_cells_total <- ncol(object)
+
   .validate_percentage(smooth_alpha, "smooth_alpha")
-  if (use_neighbourhood) {
+  if (use_neighbourhood && mode != "prior_only") {
     .validate_neighbourhood_params(neighbourhood_k, n_cells_total)
   }
-  if (n_perm > 0) {
-    .validate_n_perm(n_perm)
+  if (n_perm > 0) .validate_n_perm(n_perm)
+
+  if (mode == "expression")  use_prior <- FALSE
+  if (mode == "prior_only") {
+    use_neighbourhood <- FALSE
+    use_spatial       <- FALSE
   }
 
-  # Validate genes
   .validate_features(c(gene1, gene2), object, assay)
   if (gene1 == gene2) {
     stop("gene1 and gene2 must be different genes.", call. = FALSE)
   }
 
+  # --- Extract data ---
   mat <- .get_expression_matrix(object, features = c(gene1, gene2),
                                  assay = assay, slot = slot)
   if (inherits(mat, "dgCMatrix") || inherits(mat, "dgRMatrix")) {
@@ -118,30 +116,36 @@ AssessGenePair <- function(object,
   x <- mat_dense[gene1, ]
   y <- mat_dense[gene2, ]
   n_cells <- length(x)
+  cluster_ids <- .resolve_cluster_ids(object, cluster_col)
 
   .msg("Assessing pair: ", gene1, " -- ", gene2, " (", n_cells, " cells)",
        verbose = verbose)
 
-  # Cluster info
-  if (!is.null(cluster_col)) {
-    cluster_ids <- as.factor(object@meta.data[[cluster_col]])
-  } else {
-    cluster_ids <- as.factor(Seurat::Idents(object))
-  }
+  # --- Build single-row pair table ---
+  pair_dt <- data.table::data.table(gene1 = gene1, gene2 = gene2)
 
-  # --- Global metrics -------------------------------------------------------
+  # === Expression metrics (single-pair, fast) ==============================
   metrics <- list()
-  metrics$cor_pearson  <- stats::cor(x, y, method = "pearson")
-  metrics$cor_spearman <- stats::cor(x, y, method = "spearman")
-  metrics$cor_biweight <- .bicor(x, y)
-  metrics$mi_score     <- .mutual_info(x, y, n_bins = 5)
-  metrics$ratio_consistency <- .ratio_consistency(x, y, cluster_ids)
+  if (mode != "prior_only") {
+    metrics$cor_pearson  <- stats::cor(x, y, method = "pearson")
+    metrics$cor_spearman <- stats::cor(x, y, method = "spearman")
+    metrics$cor_biweight <- .bicor(x, y)
+    metrics$mi_score     <- .mutual_info(x, y, n_bins = 5)
+    metrics$ratio_consistency <- .ratio_consistency(x, y, cluster_ids)
 
-  # Correlation test p-values
-  ct_pearson  <- stats::cor.test(x, y, method = "pearson")
-  ct_spearman <- stats::cor.test(x, y, method = "spearman", exact = FALSE)
-  metrics$p_pearson  <- ct_pearson$p.value
-  metrics$p_spearman <- ct_spearman$p.value
+    # Write into pair_dt for unified integration
+    pair_dt[, cor_pearson := metrics$cor_pearson]
+    pair_dt[, cor_spearman := metrics$cor_spearman]
+    pair_dt[, cor_biweight := metrics$cor_biweight]
+    pair_dt[, mi_score := metrics$mi_score]
+    pair_dt[, ratio_consistency := metrics$ratio_consistency]
+
+    # Correlation test p-values
+    ct_pearson  <- stats::cor.test(x, y, method = "pearson")
+    ct_spearman <- stats::cor.test(x, y, method = "spearman", exact = FALSE)
+    metrics$p_pearson  <- ct_pearson$p.value
+    metrics$p_spearman <- ct_spearman$p.value
+  }
 
   # Expression overlap (Jaccard)
   expr_a <- x > 0
@@ -149,17 +153,15 @@ AssessGenePair <- function(object,
   intersection <- sum(expr_a & expr_b)
   union_ab     <- sum(expr_a | expr_b)
   jaccard <- if (union_ab > 0) intersection / union_ab else 0
-  metrics$jaccard_index <- jaccard
+  metrics$jaccard_index     <- jaccard
+  metrics$n_coexpressing    <- intersection
+  metrics$pct_coexpressing  <- intersection / n_cells
 
-  # Co-expression rate
-  metrics$n_coexpressing <- intersection
-  metrics$pct_coexpressing <- intersection / n_cells
-
-  # --- Per-cluster correlations ---------------------------------------------
+  # --- Per-cluster correlations ---
   clusters <- levels(cluster_ids)
   per_cluster <- data.frame(
-    cluster    = clusters,
-    n_cells    = integer(length(clusters)),
+    cluster      = clusters,
+    n_cells      = integer(length(clusters)),
     cor_pearson  = numeric(length(clusters)),
     cor_spearman = numeric(length(clusters)),
     pct_coexpr   = numeric(length(clusters)),
@@ -170,7 +172,7 @@ AssessGenePair <- function(object,
     idx <- which(cluster_ids == clusters[i])
     n_cl <- length(idx)
     per_cluster$n_cells[i] <- n_cl
-    if (n_cl < 5) {
+    if (n_cl < 5 || mode == "prior_only") {
       per_cluster$cor_pearson[i]  <- NA
       per_cluster$cor_spearman[i] <- NA
       per_cluster$pct_coexpr[i]   <- NA
@@ -181,9 +183,11 @@ AssessGenePair <- function(object,
     }
   }
 
-  # --- Neighbourhood metrics (v0.2.0) ----------------------------------------
+  # === Neighbourhood metrics (single-pair) =================================
   has_neighbourhood <- FALSE
-  if (use_neighbourhood) {
+  embed <- NULL
+  W <- NULL
+  if (use_neighbourhood && mode != "prior_only") {
     W <- tryCatch(
       .build_knn_graph(object, reduction = neighbourhood_reduction,
                        k = neighbourhood_k),
@@ -198,20 +202,19 @@ AssessGenePair <- function(object,
       has_neighbourhood <- TRUE
       .msg("Computing neighbourhood-aware metrics ...", verbose = verbose)
 
-      # KNN-smoothed correlation
       smoothed <- .smooth_expression(mat, W, alpha = smooth_alpha)
       if (inherits(smoothed, "sparseMatrix")) smoothed <- as.matrix(smoothed)
       sx <- smoothed[gene1, ]
       sy <- smoothed[gene2, ]
       metrics$smoothed_cor <- stats::cor(sx, sy, method = "pearson")
+      pair_dt[, smoothed_cor := metrics$smoothed_cor]
 
-      # Neighbourhood co-expression score
       metrics$neighbourhood_score <- .neighbourhood_coexpr(x, y, W)
+      pair_dt[, neighbourhood_score := metrics$neighbourhood_score]
 
-      # Cluster-level correlation
       metrics$cluster_cor <- .cluster_cor(x, y, cluster_ids)
+      pair_dt[, cluster_cor := metrics$cluster_cor]
 
-      # Cross-cell-type interaction (uses embedding, not KNN graph)
       embed <- tryCatch(
         Seurat::Embeddings(object, reduction = neighbourhood_reduction),
         error = function(e) NULL
@@ -223,21 +226,20 @@ AssessGenePair <- function(object,
         metrics$cross_celltype_score <- cross_ct$score
         metrics$cross_celltype_r_ab  <- cross_ct$r_ab
         metrics$cross_celltype_r_ba  <- cross_ct$r_ba
+        pair_dt[, cross_celltype_score := metrics$cross_celltype_score]
       }
+
+      metrics$neighbourhood_synergy <- .neighbourhood_synergy(x, y, W)
+      pair_dt[, neighbourhood_synergy := metrics$neighbourhood_synergy]
     }
   }
 
-  # --- Neighbourhood synergy score -------------------------------------------
-  if (has_neighbourhood && !is.null(W)) {
-    .msg("Computing neighbourhood synergy ...", verbose = verbose)
-    metrics$neighbourhood_synergy <- .neighbourhood_synergy(x, y, W)
-  }
-
-  # --- Prior knowledge metrics -----------------------------------------------
+  # === Prior knowledge metrics =============================================
   prior_net <- NULL
   bridge_result <- NULL
   if (use_prior) {
-    all_genes <- rownames(.get_expression_matrix(object, assay = assay, slot = slot))
+    all_genes <- rownames(.get_expression_matrix(object, assay = assay,
+                                                  slot = slot))
     prior_net <- tryCatch(
       .build_prior_network(organism = organism, genes = all_genes,
                            custom_pairs = custom_pairs, verbose = verbose),
@@ -251,31 +253,31 @@ AssessGenePair <- function(object,
     if (!is.null(prior_net) && prior_net$n_terms > 0) {
       .msg("Computing prior knowledge scores ...", verbose = verbose)
       metrics$prior_score <- .prior_score(gene1, gene2, prior_net)
+      pair_dt[, prior_score := metrics$prior_score]
 
       expressed_genes <- all_genes[
-        Matrix::rowMeans(.get_expression_matrix(object, assay = assay, slot = slot) > 0) > 0.01]
+        Matrix::rowMeans(.get_expression_matrix(object, assay = assay,
+                                                slot = slot) > 0) > 0.01]
       bridge_result <- .bridge_score(gene1, gene2, prior_net, expressed_genes)
-      metrics$bridge_score <- bridge_result$score
-      metrics$n_bridge_genes <- length(bridge_result$bridges)
-      metrics$bridge_genes <- paste(utils::head(bridge_result$bridges, 20),
-                                    collapse = ", ")
-      metrics$shared_terms <- paste(utils::head(bridge_result$shared_terms, 10),
-                                    collapse = ", ")
+      metrics$bridge_score    <- bridge_result$score
+      metrics$n_bridge_genes  <- length(bridge_result$bridges)
+      metrics$bridge_genes    <- paste(utils::head(bridge_result$bridges, 20),
+                                       collapse = ", ")
+      metrics$shared_terms    <- paste(utils::head(bridge_result$shared_terms, 10),
+                                       collapse = ", ")
+      pair_dt[, bridge_score := metrics$bridge_score]
     }
   }
 
-  # --- Spatial metrics -------------------------------------------------------
+  # === Spatial metrics =====================================================
   has_spatial <- FALSE
-  if (use_spatial && .has_spatial(object)) {
+  if (use_spatial && mode != "prior_only" && .has_spatial(object)) {
     has_spatial <- TRUE
     coords <- .get_spatial_coords(object)
-
-    pair_dt <- data.table::data.table(gene1 = gene1, gene2 = gene2)
     pair_dt <- .compute_spatial_lee(coords, mat, pair_dt, k = spatial_k,
                                     n_perm = min(n_perm, 199), verbose = verbose)
     pair_dt <- .compute_spatial_clq(coords, mat, pair_dt, k = spatial_k,
                                      verbose = verbose)
-
     metrics$spatial_lee_L <- pair_dt$spatial_lee_L[1]
     if ("spatial_lee_p" %in% colnames(pair_dt)) {
       metrics$spatial_lee_p <- pair_dt$spatial_lee_p[1]
@@ -283,42 +285,45 @@ AssessGenePair <- function(object,
     metrics$spatial_clq <- pair_dt$spatial_clq[1]
   }
 
-  # --- Composite score via integration framework ----------------------------
-  synergy <- mean(c(
-    abs(metrics$cor_pearson),
-    abs(metrics$cor_spearman),
-    abs(metrics$cor_biweight),
-    min(metrics$mi_score / log(5), 1),
-    metrics$ratio_consistency,
-    if (has_neighbourhood) abs(metrics$smoothed_cor) else NULL,
-    if (has_neighbourhood) min(pmax(metrics$neighbourhood_score, 0) / 2, 1) else NULL,
-    if (has_neighbourhood && !is.na(metrics$cluster_cor)) abs(metrics$cluster_cor) else NULL,
-    if (has_neighbourhood && !is.na(metrics$cross_celltype_score)) metrics$cross_celltype_score else NULL,
-    if (has_neighbourhood && !is.null(metrics$neighbourhood_synergy) && !is.na(metrics$neighbourhood_synergy))
-      min(pmax(metrics$neighbourhood_synergy, 0) / 2, 1) else NULL,
-    if (!is.null(metrics$prior_score) && !is.na(metrics$prior_score)) metrics$prior_score else NULL,
-    if (!is.null(metrics$bridge_score) && !is.na(metrics$bridge_score)) metrics$bridge_score else NULL,
-    if (has_spatial) abs(metrics$spatial_lee_L) else NULL,
-    if (has_spatial) min(metrics$spatial_clq / 2, 1) else NULL
-  ), na.rm = TRUE)
+  # === Composite score (using mean of available normalised metrics) ========
+  metric_vals <- c(
+    if (!is.null(metrics$cor_pearson))  abs(metrics$cor_pearson),
+    if (!is.null(metrics$cor_spearman)) abs(metrics$cor_spearman),
+    if (!is.null(metrics$cor_biweight)) abs(metrics$cor_biweight),
+    if (!is.null(metrics$mi_score))     min(metrics$mi_score / log(5), 1),
+    if (!is.null(metrics$ratio_consistency)) metrics$ratio_consistency,
+    if (has_neighbourhood && !is.null(metrics$smoothed_cor)) abs(metrics$smoothed_cor),
+    if (has_neighbourhood && !is.null(metrics$neighbourhood_score))
+      min(pmax(metrics$neighbourhood_score, 0) / 2, 1),
+    if (has_neighbourhood && !is.na(metrics$cluster_cor %||% NA))
+      abs(metrics$cluster_cor),
+    if (has_neighbourhood && !is.na(metrics$cross_celltype_score %||% NA))
+      metrics$cross_celltype_score,
+    if (has_neighbourhood && !is.null(metrics$neighbourhood_synergy) &&
+        !is.na(metrics$neighbourhood_synergy))
+      min(pmax(metrics$neighbourhood_synergy, 0) / 2, 1),
+    if (!is.null(metrics$prior_score) && !is.na(metrics$prior_score))
+      metrics$prior_score,
+    if (!is.null(metrics$bridge_score) && !is.na(metrics$bridge_score))
+      metrics$bridge_score,
+    if (has_spatial && !is.null(metrics$spatial_lee_L))
+      abs(metrics$spatial_lee_L),
+    if (has_spatial && !is.null(metrics$spatial_clq))
+      min(metrics$spatial_clq / 2, 1)
+  )
+  synergy <- mean(metric_vals, na.rm = TRUE)
 
-  # --- Permutation p-value (vectorised) -------------------------------------
+  # === Permutation p-value (vectorised) ====================================
   p_value <- NA_real_
-  if (n_perm > 0) {
+  if (n_perm > 0 && mode != "prior_only") {
     .msg("Permutation test (", n_perm, " permutations) ...", verbose = verbose)
 
-    # Pre-generate all permuted y vectors as a matrix (n_cells × n_perm)
     perm_y_mat <- vapply(seq_len(n_perm), function(p) sample(y), numeric(n_cells))
-
-    # Vectorised Pearson: cor(x, perm_y_mat) gives 1 × n_perm
     perm_pearson <- abs(as.numeric(stats::cor(x, perm_y_mat)))
-
-    # Vectorised Spearman: rank then Pearson
     x_rank <- rank(x)
     perm_y_rank <- apply(perm_y_mat, 2, rank)
     perm_spearman <- abs(as.numeric(stats::cor(x_rank, perm_y_rank)))
 
-    # Biweight, MI, ratio consistency: still per-perm but using fast helpers
     perm_bicor <- numeric(n_perm)
     perm_mi <- numeric(n_perm)
     perm_rc <- numeric(n_perm)
@@ -345,7 +350,6 @@ AssessGenePair <- function(object,
       }
     }
 
-    # Null composite scores (vectorised)
     n_metrics <- 5L
     null_scores <- perm_pearson + perm_spearman + perm_bicor +
                       perm_mi + perm_rc
@@ -355,7 +359,6 @@ AssessGenePair <- function(object,
       n_metrics <- n_metrics + 4L
     }
     null_scores <- null_scores / n_metrics
-
     p_value <- (sum(null_scores >= synergy) + 1) / (n_perm + 1)
   }
 
@@ -371,18 +374,28 @@ AssessGenePair <- function(object,
     else "NS"
   }
 
-  # --- Cross-cell-type detail ------------------------------------------------
+  # Write unified columns into pair_dt
+  pair_dt[, synergy_score := synergy]
+  pair_dt[, rank := 1L]
+  pair_dt[, confidence := confidence]
+  if (!is.na(p_value)) {
+    pair_dt[, p_value := p_value]
+    pair_dt[, p_adj := p_value]
+  }
+
+  # --- Cross-cell-type detail ---
   cross_celltype_detail <- if (has_neighbourhood && exists("cross_ct")) {
     cross_ct$per_celltype_pair
   } else {
     data.frame()
   }
 
-  # --- Return ---------------------------------------------------------------
+  # --- Return ---
   structure(
     list(
       gene1                = gene1,
       gene2                = gene2,
+      pairs                = pair_dt,
       metrics              = metrics,
       per_cluster          = per_cluster,
       cross_celltype_detail = cross_celltype_detail,
@@ -394,7 +407,8 @@ AssessGenePair <- function(object,
       confidence           = confidence,
       jaccard_index        = jaccard,
       has_spatial           = has_spatial,
-      n_cells              = n_cells
+      n_cells              = n_cells,
+      mode                 = mode
     ),
     class = "scPairs_pair_result"
   )
@@ -413,10 +427,11 @@ print.scPairs_pair_result <- function(x, ...) {
     cat(sprintf("  p-value        : %.4g\n", x$p_value))
   }
   cat(sprintf("  Jaccard overlap: %.3f\n", x$jaccard_index))
+  if (!is.null(x$mode)) cat(sprintf("  Mode           : %s\n", x$mode))
   cat("\n  Metrics:\n")
   for (nm in names(x$metrics)) {
     val <- x$metrics[[nm]]
-    if (is.numeric(val)) {
+    if (is.numeric(val) && length(val) == 1) {
       cat(sprintf("    %-20s: %.4f\n", nm, val))
     }
   }

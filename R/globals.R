@@ -22,5 +22,6 @@ utils::globalVariables(
     "smoothed_expr1", "smoothed_expr2", "expression", "expr_status",
     "metric", "metric_value", "type",
     "source_type", "neighbour_type", "r_plot", "label", "sufficient",
-    "edge_type", "node_type", "synergy_signal")
+    "edge_type", "node_type", "synergy_signal",
+    "mode")
 )

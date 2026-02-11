@@ -50,20 +50,8 @@ PlotPairNetwork <- function(result,
                             title        = NULL,
                             show_legend  = TRUE) {
 
-  # Extract pairs table
-  if (inherits(result, "scPairs_result") || inherits(result, "scPairs_gene_result")) {
-    edges <- as.data.frame(result$pairs)
-  } else if (is.data.frame(result)) {
-    edges <- result
-  } else {
-    stop("Input must be an scPairs result object or a data.frame.", call. = FALSE)
-  }
-
-  required <- c("gene1", "gene2", "synergy_score")
-  if (!all(required %in% colnames(edges))) {
-    stop("Input must contain columns: ", paste(required, collapse = ", "),
-         call. = FALSE)
-  }
+  # Extract pairs table (supports all three result classes + data.frame)
+  edges <- .extract_pairs_df(result)
 
   # Filter
   edges <- edges[edges$synergy_score >= min_score, , drop = FALSE]

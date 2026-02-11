@@ -25,7 +25,7 @@
 \item{reduction}{Reduction name (NULL to skip check).}
 }
 \value{
-A list with validated \code{assay} and \code{mat} (dense matrix).
+A list with validated \code{assay}.
 }
 \description{
 Checks that gene names exist and reduction is available.

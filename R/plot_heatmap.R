@@ -34,18 +34,8 @@ PlotPairHeatmap <- function(result,
                             high_color = "#08306B",
                             title      = "Gene pair synergy heatmap") {
 
-  # Extract pairs
-  if (inherits(result, "scPairs_result") || inherits(result, "scPairs_gene_result")) {
-    edges <- as.data.frame(result$pairs)
-  } else {
-    edges <- as.data.frame(result)
-  }
-
-  required <- c("gene1", "gene2", "synergy_score")
-  if (!all(required %in% colnames(edges))) {
-    stop("Input must contain columns: ", paste(required, collapse = ", "),
-         call. = FALSE)
-  }
+  # Extract pairs (supports all three result classes + data.frame)
+  edges <- .extract_pairs_df(result)
 
   # Select genes
   if (is.null(genes)) {

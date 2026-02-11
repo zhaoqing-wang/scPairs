@@ -1,33 +1,29 @@
 # scPairs
 
-## Discover Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
+## Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics
 
 [![R Version](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
 
-**scPairs** goes beyond single-marker analysis to identify cooperative gene pairs that jointly define cell states, drive pathways, or form functional complexes. It integrates **14 complementary metrics** spanning five evidence layers: cell-level co-expression, neighbourhood-aware smoothing, **prior biological knowledge** (GO/KEGG pathway co-annotation, pathway bridge genes), trans-cellular interactions, and spatial co-variation. Gene pairs are ranked by a composite synergy score with optional permutation-based significance testing.
-
-**New in v0.1.5:** Prior knowledge integration shifts scoring from pure co-expression towards true functional synergy. The pathway bridge score identifies intermediary genes connecting the focal pair through shared biological pathways, enabling detection of synergistic pairs (e.g., Adora2a-Ido1 in tumour immunosuppression) even when direct co-expression is weak.
+**scPairs** identifies cooperative gene pairs in scRNA-seq and spatial transcriptomics data by integrating **14 metrics** across **five evidence layers**: cell-level co-expression, neighbourhood-aware smoothing, prior biological knowledge (GO/KEGG), trans-cellular interaction, and spatial co-variation. Gene pairs are ranked by a composite synergy score with optional permutation-based significance testing.
 
 ## Installation
 
-``` r
+```r
 # Install from GitHub
 if (!require("devtools")) install.packages("devtools")
 devtools::install_github("zhaoqing-wang/scPairs")
-```
 
-**Required:** Seurat (\>=4.0), SeuratObject, data.table, ggplot2, ggraph, igraph, Matrix, patchwork, tidygraph, tidyr
-
-**Optional:** org.Mm.eg.db + org.Hs.eg.db + AnnotationDbi (prior knowledge), RANN (fast KNN), ggExtra (marginal densities), pheatmap, crayon
-
-``` r
 # For prior knowledge integration (recommended)
 BiocManager::install(c("org.Mm.eg.db", "org.Hs.eg.db", "AnnotationDbi"))
 ```
 
+**Required:** Seurat (>=4.0), data.table, ggplot2, ggraph, igraph, Matrix, patchwork, tidygraph, tidyr
+
+**Optional:** org.Mm.eg.db, org.Hs.eg.db, AnnotationDbi (prior knowledge), RANN (fast KNN), ggExtra (marginal densities)
+
 ## Quick Start
 
-``` r
+```r
 library(scPairs)
 library(Seurat)
 
@@ -36,14 +32,18 @@ sce <- readRDS("your_data.rds")
 
 ### 1. Global Pair Discovery
 
-Find top synergistic gene pairs genome-wide:
-
-``` r
+```r
+# All metrics (default)
 result <- FindAllPairs(sce, n_top_genes = 1000, top_n = 200)
-result
+
+# Expression metrics only (skip prior knowledge)
+result <- FindAllPairs(sce, mode = "expression")
+
+# Prior knowledge only (fast screening)
+result <- FindAllPairs(sce, mode = "prior_only", organism = "mouse")
 
 # With permutation testing
-result <- FindAllPairs(sce, n_top_genes = 500, n_perm = 999, top_n = 100)
+result <- FindAllPairs(sce, n_top_genes = 500, n_perm = 999)
 
 # Visualize
 PlotPairNetwork(result, top_n = 50)
@@ -52,127 +52,115 @@ PlotPairHeatmap(result, top_n = 25)
 
 ### 2. Query-Centric Partner Search
 
-Find synergistic partners for a gene of interest:
-
-``` r
+```r
 tp53_partners <- FindGenePairs(sce, gene = "TP53", top_n = 20)
-tp53_partners
-
-PlotPairNetwork(tp53_partners, top_n = 15)
+PlotPairNetwork(tp53_partners)
 PlotPairDimplot(sce, gene1 = "TP53", gene2 = tp53_partners$pairs$gene2[1])
 ```
 
 ### 3. In-Depth Pair Assessment
 
-Comprehensively evaluate a specific gene pair:
-
-``` r
-assessment <- AssessGenePair(sce, gene1 = "CD8A", gene2 = "CD8B", n_perm = 999)
+```r
+assessment <- AssessGenePair(sce, gene1 = "CD8A", gene2 = "CD8B")
 assessment
 
 PlotPairSmoothed(sce, gene1 = "CD8A", gene2 = "CD8B")
 PlotPairSummary(sce, gene1 = "CD8A", gene2 = "CD8B", result = assessment)
-PlotPairCrossType(sce, gene1 = "CD8A", gene2 = "CD8B")
+
+# All visualization functions accept any result class
+PlotPairNetwork(assessment)
+PlotPairHeatmap(assessment)
 ```
 
-### 4. Synergy-Aware Analysis with Prior Knowledge
+### 4. Prior Knowledge Integration
 
-Leverage GO/KEGG pathway information to detect functional synergy:
-
-``` r
-# Prior knowledge is enabled by default (use_prior = TRUE)
+```r
 # Requires: BiocManager::install(c("org.Mm.eg.db", "AnnotationDbi"))
-
-# Assess a known synergistic pair (e.g., Adora2a-Ido1 in tumour immunity)
 result <- AssessGenePair(sce, gene1 = "Adora2a", gene2 = "Ido1",
                           organism = "mouse")
-result  # Shows prior score, bridge genes, and shared GO/KEGG terms
+PlotPairSynergy(sce, gene1 = "Adora2a", gene2 = "Ido1")
 
-# Visualize the full synergistic relationship
-PlotPairSynergy(sce, gene1 = "Adora2a", gene2 = "Ido1", organism = "mouse")
-
-# Supply custom interaction databases (CellChatDB, SCENIC, etc.)
-custom_db <- data.frame(gene1 = c("Adora2a", "Cd274"),
-                        gene2 = c("Ido1", "Pdcd1"),
-                        source = "custom_validated")
+# Custom interaction databases
+custom_db <- data.frame(gene1 = c("Adora2a"), gene2 = c("Ido1"))
 result <- FindGenePairs(sce, gene = "Adora2a", custom_pairs = custom_db)
 ```
 
-### Spatial Transcriptomics
+### 5. Spatial Transcriptomics
 
-Spatial metrics are **automatically detected** for Visually, MERFISH, Slide-seq, etc.:
+Spatial metrics are automatically detected for Visium, MERFISH, Slide-seq, etc.:
 
-``` r
+```r
 result <- FindAllPairs(spatial_obj, n_top_genes = 500)
-result$has_spatial  # TRUE
-
 PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 ```
 
-## Metrics
+## Architecture
 
-scPairs evaluates each gene pair through five layers of evidence:
+### Computation Modes
 
-| Layer | Metrics | What It Captures |
-|------------------------|------------------------|------------------------|
-| **Cell-level** | Pearson, Spearman, Biweight midcorrelation, Mutual information, Ratio consistency | Direct co-expression, non-linear dependence, stoichiometric stability |
-| **Neighbourhood** | KNN-smoothed correlation, Neighbourhood co-expression, Cluster pseudo-bulk correlation, **Neighbourhood synergy** | Co-regulation beyond dropout, population-level patterns, directional paracrine enrichment |
-| **Prior knowledge** | **GO/KEGG co-annotation score**, **Pathway bridge score** | Functional relatedness from curated databases, indirect synergy through pathway intermediaries |
-| **Trans-cellular** | Cross-cell-type interaction score | Paracrine signalling, ligand-receptor pairs across cell types |
-| **Spatial** | Lee's L statistic, Co-location quotient (CLQ) | Bivariate spatial autocorrelation, proximity enrichment |
+All three discovery functions (`FindAllPairs`, `FindGenePairs`, `AssessGenePair`) accept a `mode` parameter:
 
-All metrics are rank-normalised to [0, 1] and combined via weighted summation:
+| Mode | Metrics Computed | Use Case |
+|------|-----------------|----------|
+| `"all"` (default) | All 14 metrics | Full analysis |
+| `"expression"` | Co-expression + neighbourhood | No annotation databases |
+| `"prior_only"` | Prior knowledge scores only | Fast pathway-based screening |
 
-```         
+### Metrics
+
+| Layer | Metrics | Weight |
+|-------|---------|--------|
+| **Cell-level** | Pearson, Spearman, Biweight, MI, Ratio consistency | 1.0--1.5 |
+| **Neighbourhood** | KNN-smoothed cor, Neighbourhood score, Cluster cor, Cross-cell-type, Neighbourhood synergy | 1.2--1.5 |
+| **Prior knowledge** | GO/KEGG co-annotation, Pathway bridge score | 1.8--2.0 |
+| **Spatial** | Lee's L, Co-location quotient | 1.2--1.5 |
+
+Metrics are rank-normalised to [0, 1] and combined via weighted summation:
+
+```
 synergy_score = sum(w_i * rank_norm(metric_i)) / sum(w_i)
 ```
 
-Higher weights (1.5) are assigned to dropout-robust metrics (biweight, smoothed correlation, neighbourhood score, cross-cell-type, Lee's L). Permutation testing provides empirical p-values with Benjamini-Hochberg FDR correction.
+### Unified Output
+
+All three functions produce results containing a `pairs` data.table with consistent column names (`gene1`, `gene2`, `synergy_score`, `rank`, `confidence`, plus metric columns). Every visualization function accepts any of the three result types interchangeably.
 
 ## Functions
 
-| Function              | Purpose                                        |
-|-----------------------|------------------------------------------------|
-| `FindAllPairs()`      | Global discovery of all synergistic gene pairs |
-| `FindGenePairs()`     | Find partners for a specific gene              |
-| `AssessGenePair()`    | Detailed assessment of a single pair           |
-| `PlotPairNetwork()`   | Gene interaction network                       |
-| `PlotPairHeatmap()`   | Synergy score heatmap                          |
-| `PlotPairDimplot()`   | UMAP/tSNE co-expression overlay (3-panel)      |
-| `PlotPairSmoothed()`  | Raw + KNN-smoothed UMAP (6-panel)              |
-| `PlotPairSummary()`   | Comprehensive multi-panel figure               |
-| `PlotPairSpatial()`   | Spatial co-expression map (3-panel)            |
-| `PlotPairCrossType()` | Cross-cell-type interaction heatmap            |
-| `PlotPairViolin()`    | Expression distributions by cluster            |
-| `PlotPairScatter()`   | Gene-gene scatter plot                         |
-| `PlotPairSynergy()`   | Prior knowledge + neighbourhood synergy (6-panel) |
-
-## Output
-
-All functions return S3 objects with custom `print()` methods.
-
-**`FindAllPairs()` / `FindGenePairs()`** return a ranked `data.table` of gene pairs with all metric values, composite synergy scores, and (optionally) p-values, FDR-adjusted p-values, and confidence levels (High/Medium/Low/NS).
-
-**`AssessGenePair()`** returns per-metric scores, per-cluster correlations, cross-cell-type breakdowns, permutation p-value, and confidence classification.
+| Function | Purpose |
+|----------|---------|
+| `FindAllPairs()` | Global discovery of synergistic gene pairs |
+| `FindGenePairs()` | Find partners for a specific query gene |
+| `AssessGenePair()` | Detailed assessment of a single pair |
+| `PlotPairNetwork()` | Gene interaction network |
+| `PlotPairHeatmap()` | Synergy score heatmap |
+| `PlotPairDimplot()` | UMAP co-expression overlay (3-panel) |
+| `PlotPairSmoothed()` | Raw + KNN-smoothed UMAP (6-panel) |
+| `PlotPairSummary()` | Comprehensive multi-panel figure |
+| `PlotPairSpatial()` | Spatial co-expression map (3-panel) |
+| `PlotPairCrossType()` | Cross-cell-type interaction heatmap |
+| `PlotPairViolin()` | Expression distributions by cluster |
+| `PlotPairScatter()` | Gene-gene scatter plot |
+| `PlotPairSynergy()` | Prior knowledge + neighbourhood synergy (6-panel) |
 
 ## Performance
 
-Vectorised implementations (tcrossprod, sparse matrix multiply, pre-binned MI) yield 5-20x speedups over naive approaches. Typical runtimes (Intel i7, 16GB RAM):
+Vectorised implementations yield 5--20x speedups over naive approaches.
 
-| Scale                    | Time (no permutation) |
-|--------------------------|-----------------------|
-| 1000 genes x 5000 cells  | \~5-10s               |
-| 2000 genes x 10000 cells | \~30-60s              |
-| \+ 999 permutations      | add \~2-5 min         |
+| Scale | Time (no permutation) |
+|-------|-----------------------|
+| 1000 genes x 5000 cells | ~5--10 s |
+| 2000 genes x 10000 cells | ~30--60 s |
+| + 999 permutations | add ~2--5 min |
 
 ## Citation
 
-``` bibtex
+```bibtex
 @Manual{scPairs,
-  title = {scPairs: Discover Synergistic Gene Pairs in scRNA-seq and Spatial Transcriptomics},
+  title = {scPairs: Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.1.5},
+  note = {R package version 0.2.0},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```
@@ -183,4 +171,4 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Contact
 
-**Author:** Zhaoqing Wang ([ORCID](https://orcid.org/0000-0001-8348-7245)) **Email:** [zhaoqingwang\@mail.sdu.edu.cn](mailto:zhaoqingwang@mail.sdu.edu.cn){.email} **Issues:** [GitHub Issues](https://github.com/zhaoqing-wang/scPairs/issues)
+**Author:** Zhaoqing Wang ([ORCID](https://orcid.org/0000-0001-8348-7245)) | **Email:** <zhaoqingwang@mail.sdu.edu.cn> | **Issues:** [GitHub Issues](https://github.com/zhaoqing-wang/scPairs/issues)
