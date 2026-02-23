@@ -1,5 +1,5 @@
 Package: scPairs
-Version: 0.1.6
+Version: 0.1.7
 Title: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 Description: Discovers synergistic gene pairs in single-cell RNA-seq and spatial
     transcriptomics data. Integrates 14 metrics across five evidence layers:
@@ -13,7 +13,11 @@ Description: Discovers synergistic gene pairs in single-cell RNA-seq and spatial
     (global discovery, query-centric search, pair-level assessment) share
     a common computation engine with selectable modes: all metrics, expression
     only, or prior knowledge only. All outputs use a consistent data.table
-    format and are accepted by every visualization function.
+    format and are accepted by every visualization function. Includes an
+    enhanced bridge gene network visualization ('PlotBridgeNetwork') that
+    renders prior-knowledge pathway connections as a spatially rich,
+    weighted-edge graph with automatic layout selection, expression-coded
+    nodes, and shared-term-weighted edges.
 Authors@R: 
     person(given = "Zhaoqing", family = "Wang",
            email = "zhaoqingwang@mail.sdu.edu.cn",
@@ -28,6 +32,7 @@ Imports:
     data.table,
     ggplot2,
     ggraph,
+    ggrepel,
     igraph,
     methods,
     Matrix,
@@ -50,3 +55,4 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Date: 2026-02-23
+

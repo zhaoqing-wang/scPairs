@@ -1,3 +1,28 @@
+# scPairs 0.1.7 (2026-02-23)
+
+## Bridge Gene Network Visualization
+
+-   **New exported function `PlotBridgeNetwork()`**: standalone bridge gene
+    network for a focal gene pair. Nodes are positioned via MDS on Jaccard
+    pathway-distance, with radial depth scaled by shared-term count; focal
+    genes sit at the centre. Bridge gene nodes are sized by bridging strength
+    and filled by mean expression (viridis). Focal → bridge edges are coloured
+    by source gene (red / blue) with width ∝ shared term count; dotted
+    inter-bridge edges encode pairwise Jaccard similarity. Direct focal-pair
+    co-annotation is shown as a solid dark-red link. Supports `layout`
+    parameter (`"auto"`, `"fr"`, `"dh"`, `"stress"`, etc.) and configurable
+    `sim_threshold`, `pt_size_range`, `edge_width_range`.
+
+-   **Refactored internal `.plot_bridge_network_enhanced()`**: replaces prior
+    static circular layout with MDS-radial positioning; adds weighted edges
+    (width ∝ term count), expression-coded fill, duplicate-edge deduplication,
+    and bridge-bridge similarity overlay.
+
+-   **`PlotPairSynergy()` panel 2** now calls `.plot_bridge_network_enhanced()`,
+    inheriting the enhanced layout and encoding.
+
+------------------------------------------------------------------------
+
 # scPairs 0.1.6 (2026-02-11)
 
 ## Unified Computation Engine & API Consolidation

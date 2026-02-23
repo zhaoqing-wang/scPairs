@@ -3,6 +3,7 @@
 #' @importFrom Matrix sparseMatrix t rowMeans rowSums
 #' @importFrom methods as
 #' @importFrom utils head packageVersion
+#' @importFrom ggrepel geom_text_repel
 NULL
 
 utils::globalVariables(
@@ -23,5 +24,8 @@ utils::globalVariables(
     "metric", "metric_value", "type",
     "source_type", "neighbour_type", "r_plot", "label", "sufficient",
     "edge_type", "node_type", "synergy_signal",
-    "mode")
+    "mode",
+    "n_shared", "fill_val", "pathway_strength",
+    "xend", "yend", "sim", "colour", "width",
+    "linewidth", "lwd")
 )

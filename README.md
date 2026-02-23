@@ -17,7 +17,16 @@
 
 ## Overview
 
-**scPairs** identifies cooperative gene pairs in scRNA-seq and spatial transcriptomics data by integrating **14 metrics** across **five evidence layers**: cell-level co-expression, neighbourhood-aware smoothing, prior biological knowledge (GO/KEGG), trans-cellular interaction, and spatial co-variation. Gene pairs are ranked by a composite synergy score with optional permutation-based significance testing.
+**scPairs** discovers cooperative gene pairs in scRNA-seq and spatial transcriptomics data. It integrates **14 complementary metrics** across **five evidence layers** — cell-level co-expression, neighbourhood-aware smoothing, prior biological knowledge (GO/KEGG), trans-cellular interaction, and spatial co-variation — to rank gene pairs by a composite **synergy score** with optional permutation-based significance testing. Three unified workflows (global discovery, query-centric search, single-pair assessment) share a common computation engine, and all outputs feed directly into a rich suite of publication-ready visualizations.
+
+### Key Features
+
+- **Multi-layer scoring** — moves beyond simple co-expression to capture neighbourhood context, pathway-level co-annotation, bridge gene connectivity, and spatial co-localization.
+- **Three analysis workflows** — `FindAllPairs()` for genome-wide screening, `FindGenePairs()` for query-centric partner discovery, `AssessGenePair()` for in-depth pair evaluation.
+- **Selectable computation modes** — run all 14 metrics, expression-only metrics, or prior-knowledge-only screening to balance depth and speed.
+- **Unified output schema** — every workflow returns the same `pairs` data.table format; every visualization function accepts any result class interchangeably.
+- **14 publication-ready visualizations** — network graphs, heatmaps, UMAP overlays, smoothed expression panels, spatial maps, synergy dashboards, bridge gene networks, and more.
+- **Automatic spatial detection** — Visium, MERFISH, Slide-seq and other spatial modalities are detected automatically; spatial metrics are computed without additional configuration.
 
 ## Installation
 
@@ -30,9 +39,9 @@ devtools::install_github("zhaoqing-wang/scPairs")
 BiocManager::install(c("org.Mm.eg.db", "org.Hs.eg.db", "AnnotationDbi"))
 ```
 
-**Required:** Seurat (>=4.0), data.table, ggplot2, ggraph, igraph, Matrix, patchwork, tidygraph, tidyr
+**Required:** Seurat (≥ 4.0), data.table, ggplot2, ggraph, igraph, Matrix, patchwork, tidygraph, tidyr
 
-**Optional:** org.Mm.eg.db, org.Hs.eg.db, AnnotationDbi (prior knowledge), RANN (fast KNN), ggExtra (marginal densities)
+**Optional:** org.Mm.eg.db / org.Hs.eg.db / AnnotationDbi (prior knowledge), RANN (fast KNN), ggExtra (marginal densities)
 
 ## Quick Start
 
@@ -46,13 +55,13 @@ sce <- readRDS("your_data.rds")
 ### 1. Global Pair Discovery
 
 ```r
-# All metrics (default)
+# All 14 metrics (default)
 result <- FindAllPairs(sce, n_top_genes = 1000, top_n = 200)
 
-# Expression metrics only (skip prior knowledge)
+# Expression metrics only (no annotation databases needed)
 result <- FindAllPairs(sce, mode = "expression")
 
-# Prior knowledge only (fast screening)
+# Prior knowledge only (fast pathway-based screening)
 result <- FindAllPairs(sce, mode = "prior_only", organism = "mouse")
 
 # With permutation testing
@@ -85,13 +94,19 @@ PlotPairNetwork(assessment)
 PlotPairHeatmap(assessment)
 ```
 
-### 4. Prior Knowledge Integration
+### 4. Prior Knowledge & Bridge Gene Network
 
 ```r
 # Requires: BiocManager::install(c("org.Mm.eg.db", "AnnotationDbi"))
 result <- AssessGenePair(sce, gene1 = "Adora2a", gene2 = "Ido1",
                           organism = "mouse")
+
+# 6-panel synergy dashboard (expression + neighbourhood + prior evidence)
 PlotPairSynergy(sce, gene1 = "Adora2a", gene2 = "Ido1")
+
+# Standalone bridge gene network
+PlotBridgeNetwork(sce, gene1 = "Adora2a", gene2 = "Ido1",
+                   organism = "mouse", top_bridges = 15)
 
 # Custom interaction databases
 custom_db <- data.frame(gene1 = c("Adora2a"), gene2 = c("Ido1"))
@@ -111,69 +126,73 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 ### Computation Modes
 
-All three discovery functions (`FindAllPairs`, `FindGenePairs`, `AssessGenePair`) accept a `mode` parameter:
-
 | Mode | Metrics Computed | Use Case |
 |------|-----------------|----------|
 | `"all"` (default) | All 14 metrics | Full analysis |
 | `"expression"` | Co-expression + neighbourhood | No annotation databases |
 | `"prior_only"` | Prior knowledge scores only | Fast pathway-based screening |
 
-### Metrics
+### Five Evidence Layers (14 Metrics)
 
 | Layer | Metrics | Weight |
 |-------|---------|--------|
-| **Cell-level** | Pearson, Spearman, Biweight, MI, Ratio consistency | 1.0--1.5 |
-| **Neighbourhood** | KNN-smoothed cor, Neighbourhood score, Cluster cor, Cross-cell-type, Neighbourhood synergy | 1.2--1.5 |
-| **Prior knowledge** | GO/KEGG co-annotation, Pathway bridge score | 1.8--2.0 |
-| **Spatial** | Lee's L, Co-location quotient | 1.2--1.5 |
+| **Cell-level** | Pearson, Spearman, Biweight midcorrelation, Mutual information, Ratio consistency | 1.0 – 1.5 |
+| **Neighbourhood** | KNN-smoothed correlation, Neighbourhood score, Cluster correlation, Cross-cell-type score, Neighbourhood synergy | 1.2 – 1.5 |
+| **Prior knowledge** | GO/KEGG co-annotation (Jaccard), Pathway bridge score | 1.8 – 2.0 |
+| **Spatial** | Lee's L, Co-location quotient | 1.2 – 1.5 |
 
 Metrics are rank-normalised to [0, 1] and combined via weighted summation:
 
-```
-synergy_score = sum(w_i * rank_norm(metric_i)) / sum(w_i)
-```
+$$\text{synergy\_score} = \frac{\sum_i w_i \cdot \text{rank\_norm}(m_i)}{\sum_i w_i}$$
 
 ### Unified Output
 
-All three functions produce results containing a `pairs` data.table with consistent column names (`gene1`, `gene2`, `synergy_score`, `rank`, `confidence`, plus metric columns). Every visualization function accepts any of the three result types interchangeably.
+All three workflows produce a `pairs` data.table with consistent columns: `gene1`, `gene2`, `synergy_score`, `rank`, `confidence`, plus individual metric columns. Every visualization function accepts any result class interchangeably.
 
 ## Functions
 
+### Discovery
+
 | Function | Purpose |
-|----------|---------|
+|----------|--------|
 | `FindAllPairs()` | Global discovery of synergistic gene pairs |
 | `FindGenePairs()` | Find partners for a specific query gene |
-| `AssessGenePair()` | Detailed assessment of a single pair |
-| `PlotPairNetwork()` | Gene interaction network |
+| `AssessGenePair()` | Detailed assessment of a specific pair |
+
+### Visualization
+
+| Function | Purpose |
+|----------|--------|
+| `PlotPairNetwork()` | Synergy-weighted gene interaction network |
 | `PlotPairHeatmap()` | Synergy score heatmap |
 | `PlotPairDimplot()` | UMAP co-expression overlay (3-panel) |
 | `PlotPairSmoothed()` | Raw + KNN-smoothed UMAP (6-panel) |
-| `PlotPairSummary()` | Comprehensive multi-panel figure |
+| `PlotPairSummary()` | Comprehensive multi-panel summary figure |
 | `PlotPairSpatial()` | Spatial co-expression map (3-panel) |
 | `PlotPairCrossType()` | Cross-cell-type interaction heatmap |
 | `PlotPairViolin()` | Expression distributions by cluster |
-| `PlotPairScatter()` | Gene-gene scatter plot |
-| `PlotPairSynergy()` | Prior knowledge + neighbourhood synergy (6-panel) |
+| `PlotPairScatter()` | Gene–gene scatter plot with marginal densities |
+| `PlotPairSynergy()` | Multi-evidence synergy dashboard (6-panel) |
+| `PlotBridgeNetwork()` | Bridge gene network with pathway-weighted edges |
 
 ## Performance
 
-Vectorised implementations yield 5--20x speedups over naive approaches.
+Vectorised implementations yield 5–20× speedups over naive approaches.
 
 | Scale | Time (no permutation) |
 |-------|-----------------------|
-| 1000 genes x 5000 cells | ~5--10 s |
-| 2000 genes x 10000 cells | ~30--60 s |
-| + 999 permutations | add ~2--5 min |
+| 1 000 genes × 5 000 cells | ~ 5–10 s |
+| 2 000 genes × 10 000 cells | ~ 30–60 s |
+| + 999 permutations | + ~ 2–5 min |
 
 ## Citation
 
 ```bibtex
 @Manual{scPairs,
-  title = {scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics},
+  title = {scPairs: Identifying Synergistic Gene Pairs in Single-Cell
+           and Spatial Transcriptomics},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.1.6},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```

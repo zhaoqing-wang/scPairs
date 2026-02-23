@@ -5,3 +5,4 @@
 .vscode
 /.quarto/
 inst/doc
+.positai

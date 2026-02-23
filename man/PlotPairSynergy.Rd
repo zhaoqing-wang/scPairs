@@ -55,7 +55,7 @@ If NULL, built automatically.}
 A combined ggplot (patchwork) with panels showing:
 \enumerate{
 \item UMAP with neighbourhood synergy highlighting
-\item Bridge gene network
+\item Bridge gene network (enhanced multi-layout graph)
 \item Per-cluster expression evidence
 \item Metric comparison (expression + prior)
 }
