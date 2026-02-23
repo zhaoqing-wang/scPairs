@@ -4,9 +4,9 @@
       <h1>scPairs</h1>
       <p><strong>Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics</strong></p>
       <p>
-        <a href="https://www.r-project.org/"><img src="https://img.shields.io/badge/R-%3E%3D4.1.0-blue" alt="R Version" /></a>
+        <a href="https://github.com/zhaoqing-wang/scPairs/releases"><img src="https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=Version&color=blue" alt="GitHub Package Version" /></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
-        <a href="https://github.com/zhaoqing-wang/scPairs/releases"><img src="https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue" alt="GitHub Package Version" /></a>
+        <a href="https://www.r-project.org/"><img src="https://img.shields.io/badge/R-%3E%3D4.1.0-blue" alt="R Version" /></a>
         <a href="https://github.com/zhaoqing-wang"><img src="https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green" alt="GitHub Maintainer" /></a>
       </p>
     </td>
