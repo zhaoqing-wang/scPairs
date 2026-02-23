@@ -170,10 +170,10 @@ Vectorised implementations yield 5--20x speedups over naive approaches.
 
 ```bibtex
 @Manual{scPairs,
-  title = {scPairs: Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics},
+  title = {scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics},
   author = {Zhaoqing Wang},
   year = {2026},
-  note = {R package version 0.2.0},
+  note = {R package version 0.1.6},
   url = {https://github.com/zhaoqing-wang/scPairs},
 }
 ```
