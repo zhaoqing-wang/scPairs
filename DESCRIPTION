@@ -1,6 +1,6 @@
 Package: scPairs
 Version: 0.1.6
-Title: Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics
+Title: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 Description: Discovers synergistic gene pairs in single-cell RNA-seq and spatial
     transcriptomics data. Integrates 14 metrics across five evidence layers:
     cell-level co-expression (Pearson, Spearman, biweight midcorrelation,
@@ -49,4 +49,4 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Date: 2026-02-11
+Date: 2026-02-23

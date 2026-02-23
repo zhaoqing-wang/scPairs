@@ -1,8 +1,7 @@
 <table>
   <tr>
     <td>
-      <h1>scPairs</h1>
-      <p><strong>Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics</strong></p>
+      <h1>scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics</h1>
       <p>
         <a href="https://github.com/zhaoqing-wang/scPairs/releases"><img src="https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=Version&color=blue" alt="GitHub Package Version" /></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" /></a>
