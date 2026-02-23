@@ -1,10 +1,10 @@
+<img src="docs/Sticker.png" alt="Sticker" width="233.28" height="270" align="right"/>
+
 # scPairs: Synergistic Gene Pair Discovery in Single-Cell and Spatial Transcriptomics
 
 [![R Version](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
 
 ## Overview
-
-<img src="docs/Sticker.png" alt="Sticker" width="233.28" height="270" align="right"/>
 
 **scPairs** identifies cooperative gene pairs in scRNA-seq and spatial transcriptomics data by integrating **14 metrics** across **five evidence layers**: cell-level co-expression, neighbourhood-aware smoothing, prior biological knowledge (GO/KEGG), trans-cellular interaction, and spatial co-variation. Gene pairs are ranked by a composite synergy score with optional permutation-based significance testing.
 
