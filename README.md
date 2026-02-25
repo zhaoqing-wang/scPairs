@@ -187,14 +187,9 @@ Vectorised implementations yield 5–20× speedups over naive approaches.
 
 ## Citation
 
-```bibtex
-@Manual{scPairs,
-  title = {scPairs: Identifying Synergistic Gene Pairs in Single-Cell
-           and Spatial Transcriptomics},
-  author = {Zhaoqing Wang},
-  year = {2026},
-  url = {https://github.com/zhaoqing-wang/scPairs},
-}
+```
+Wang Z (2026). scPairs: Identifying Synergistic Gene Pairs in single-Cell and Spatial Transcriptomics
+https://github.com/zhaoqing-wang/scPairs
 ```
 
 ## License
@@ -203,4 +198,4 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Contact
 
-**Author:** Zhaoqing Wang ([ORCID](https://orcid.org/0000-0001-8348-7245)) | **Email:** <zhaoqingwang@mail.sdu.edu.cn> | **Issues:** [GitHub Issues](https://github.com/zhaoqing-wang/scPairs/issues)
+**Author:** Zhaoqing Wang ([ORCID](https://orcid.org/0000-0001-8348-7245)) | **Email:** <zhaoqingwang@mail.sdu.edu.cn> | **Issues:** [scPairs Issues](https://github.com/zhaoqing-wang/scPairs/issues)
