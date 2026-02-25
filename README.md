@@ -188,7 +188,7 @@ Vectorised implementations yield 5–20× speedups over naive approaches.
 ## Citation
 
 ```
-Wang Z (2026). scPairs: Identifying Synergistic Gene Pairs in single-Cell and Spatial Transcriptomics
+Wang Z (2026). scPairs: Identifying Synergistic Gene Pairs in single-Cell and Spatial Transcriptomics.
 https://github.com/zhaoqing-wang/scPairs
 ```
 
