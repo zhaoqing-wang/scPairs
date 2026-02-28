@@ -180,7 +180,9 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 Metrics are rank-normalised to [0, 1] and combined via weighted summation:
 
-$$\operatorname{synergy\_score} = \frac{\sum_{i} w_{i} \cdot \operatorname{rank\_norm}(m_{i})}{\sum_{i} w_{i}}$$
+$$S = \frac{\sum_{i} w_{i} \cdot R(m_{i})}{\sum_{i} w_{i}}$$
+
+where $S$ denotes `synergy_score` and $R(\cdot)$ denotes rank normalisation (`rank_norm`).
 
 ### 3.3 Unified Output Schema
 
