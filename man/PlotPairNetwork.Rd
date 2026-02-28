@@ -54,14 +54,12 @@ width encodes synergy score; edge colour encodes confidence.  Node size
 optionally reflects the number of significant partners (degree centrality).
 }
 \examples{
-\donttest{
 result <- FindAllPairs(scpairs_testdata,
                        n_top_genes = 20,
                        top_n       = 10,
                        mode        = "expression",
                        verbose     = FALSE)
 PlotPairNetwork(result, top_n = 8)
-}
 
 }
 \seealso{

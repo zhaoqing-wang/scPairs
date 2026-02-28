@@ -33,14 +33,12 @@
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' result <- FindAllPairs(scpairs_testdata,
 #'                        n_top_genes = 20,
 #'                        top_n       = 10,
 #'                        mode        = "expression",
 #'                        verbose     = FALSE)
 #' PlotPairNetwork(result, top_n = 8)
-#' }
 #'
 PlotPairNetwork <- function(result,
                             top_n        = 50,

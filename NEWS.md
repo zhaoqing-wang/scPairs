@@ -17,10 +17,13 @@ overhauled package structure modelled on established CRAN bioinformatics package
     (`print.scPairs_result`, `print.scPairs_gene_result`,
     `print.scPairs_pair_result`), each returning the input object invisibly.
 
--   **Replaced `\dontrun{}` with `\donttest{}`** across all example blocks.
-    Examples that genuinely require additional software
-    (`PlotPairSpatial` — spatial assay data; `PlotBridgeNetwork` and
-    `PlotPairSynergy` — Bioconductor annotation packages) retain `\dontrun{}`.
+-   **All 11 runnable examples unwrapped**: `\donttest{}` removed entirely;
+    examples now execute as plain R code during `R CMD check` (all complete
+    in under 10 s on standard hardware). Three functions retain `\dontrun{}`
+    because they require software not guaranteed to be present:
+    `PlotPairSpatial` (spatial-assay Seurat object), `PlotBridgeNetwork` and
+    `PlotPairSynergy` (both require Bioconductor annotation packages
+    `org.Hs.eg.db` / `org.Mm.eg.db`).
 
 -   **Removed `set.seed()`** from inside `.plot_bridge_network_enhanced()`
     (`R/plot_synergy.R`); the package no longer sets a user-visible seed.
@@ -42,9 +45,8 @@ overhauled package structure modelled on established CRAN bioinformatics package
     (`set.seed(7391)`); `data-raw/` excluded from the CRAN build via
     `.Rbuildignore`.
 
--   All `\donttest{}` examples updated to reference `scpairs_testdata`
-    directly — no inline Seurat-object construction needed in any function
-    documentation.
+-   All runnable examples reference `scpairs_testdata` directly — no inline
+    Seurat-object construction needed in any function documentation.
 
 -   Dataset documented in `R/scpairs_testdata.R` with full `@format`,
     `@details`, `@usage`, `@seealso`, and `@family Section_0_Data` tags,
@@ -106,7 +108,15 @@ overhauled package structure modelled on established CRAN bioinformatics package
     tests requiring custom configurations (single-cluster data, spatial
     coordinates, unusual gene counts).
 
--   **115 tests passing**, 0 failures, 0 skips.
+-   **Fixed 2 test warnings** (`WARN 0` across all files):
+    -   `test-assess-pair.R`: wrapped the `n_perm = 49` call in
+        `suppressWarnings()` — the low-permutation advisory is intentional
+        package behaviour, not a bug in the test.
+    -   `test-consolidated-functions.R`: changed the third matrix row from
+        `rnorm(n)` to `abs(rnorm(n))` in the `.compute_ratio_consistency`
+        batch test, preventing `log2(mat + 1)` from receiving negative inputs.
+
+-   **115 tests passing**, 0 failures, **0 warnings**, 0 skips.
 
 ------------------------------------------------------------------------
 

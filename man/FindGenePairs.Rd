@@ -108,7 +108,6 @@ The \code{mode} parameter controls which metric layers are computed:
 }
 }
 \examples{
-\donttest{
 # Find synergistic partners of GENE3.  GENE4 is expected to rank first.
 result <- FindGenePairs(scpairs_testdata,
                         gene    = "GENE3",
@@ -116,7 +115,6 @@ result <- FindGenePairs(scpairs_testdata,
                         mode    = "expression",
                         verbose = FALSE)
 print(result)
-}
 }
 \seealso{
 \code{\link{FindAllPairs}} for genome-wide screening,

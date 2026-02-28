@@ -42,10 +42,8 @@ groups, enabling visual assessment of whether their expression patterns
 are coordinated across populations.
 }
 \examples{
-\donttest{
 PlotPairViolin(scpairs_testdata, "GENE3", "GENE4",
               group_by = "seurat_clusters")
-}
 
 }
 \seealso{

@@ -58,10 +58,8 @@ that are not co-expressed in the same cell but share neighbourhood-level
 co-expression patterns.
 }
 \examples{
-\donttest{
 # scpairs_testdata has PCA (smooth_reduction) and UMAP (reduction) ready.
 PlotPairSmoothed(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-}
 
 }
 \seealso{

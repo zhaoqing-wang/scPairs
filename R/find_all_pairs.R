@@ -69,7 +69,6 @@
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' # scpairs_testdata is a built-in Seurat object with 100 cells x 20 genes.
 #' # GENE3 & GENE4 are injected as the top co-expressed pair.
 #' result <- FindAllPairs(scpairs_testdata,
@@ -78,7 +77,6 @@
 #'                        mode        = "expression",
 #'                        verbose     = FALSE)
 #' print(result)
-#' }
 FindAllPairs <- function(object,
                          features              = NULL,
                          n_top_genes           = 2000,

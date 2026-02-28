@@ -80,12 +80,10 @@ the cross-type signal (e.g. Adora2a in T-cells correlated with Ido1 in
 dendritic cells).
 }
 \examples{
-\donttest{
 # scpairs_testdata has clusters (seurat_clusters) and PCA already built in.
 PlotPairCrossType(scpairs_testdata,
                  gene1 = "GENE3",
                  gene2 = "GENE4")
-}
 
 }
 \seealso{

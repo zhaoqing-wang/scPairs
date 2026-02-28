@@ -57,9 +57,7 @@ A multi-panel publication-ready figure combining:
 }
 }
 \examples{
-\donttest{
 PlotPairSummary(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-}
 }
 \seealso{
 \code{\link{PlotPairSmoothed}}, \code{\link{AssessGenePair}}.

@@ -49,10 +49,8 @@ by cluster identity.  Marginal density curves (optional) help reveal
 cluster-specific co-expression patterns.
 }
 \examples{
-\donttest{
 PlotPairScatter(scpairs_testdata, "GENE3", "GENE4",
                group_by = "seurat_clusters")
-}
 
 }
 \seealso{

@@ -58,7 +58,6 @@
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' # Find synergistic partners of GENE3.  GENE4 is expected to rank first.
 #' result <- FindGenePairs(scpairs_testdata,
 #'                         gene    = "GENE3",
@@ -66,7 +65,6 @@
 #'                         mode    = "expression",
 #'                         verbose = FALSE)
 #' print(result)
-#' }
 FindGenePairs <- function(object,
                           gene,
                           candidates              = NULL,

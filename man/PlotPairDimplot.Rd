@@ -47,10 +47,8 @@ their element-wise product (co-expression intensity).  This allows visual
 assessment of whether co-expressing cells cluster together.
 }
 \examples{
-\donttest{
 # scpairs_testdata has a real UMAP embedding; GENE3 & GENE4 are co-expressed.
 PlotPairDimplot(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-}
 
 }
 \seealso{

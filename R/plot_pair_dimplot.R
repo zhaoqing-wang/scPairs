@@ -29,10 +29,8 @@
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' # scpairs_testdata has a real UMAP embedding; GENE3 & GENE4 are co-expressed.
 #' PlotPairDimplot(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-#' }
 #'
 PlotPairDimplot <- function(object,
                             gene1,
@@ -140,10 +138,8 @@ PlotPairDimplot <- function(object,
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' PlotPairViolin(scpairs_testdata, "GENE3", "GENE4",
 #'               group_by = "seurat_clusters")
-#' }
 #'
 PlotPairViolin <- function(object,
                            gene1,
@@ -223,10 +219,8 @@ PlotPairViolin <- function(object,
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' PlotPairScatter(scpairs_testdata, "GENE3", "GENE4",
 #'                group_by = "seurat_clusters")
-#' }
 #'
 PlotPairScatter <- function(object,
                             gene1,

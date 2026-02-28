@@ -33,10 +33,8 @@
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' # scpairs_testdata has PCA (smooth_reduction) and UMAP (reduction) ready.
 #' PlotPairSmoothed(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-#' }
 #'
 PlotPairSmoothed <- function(object,
                              gene1,
@@ -171,9 +169,7 @@ PlotPairSmoothed <- function(object,
 #' @export
 #'
 #' @examples
-#' \donttest{
 #' PlotPairSummary(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
-#' }
 PlotPairSummary <- function(object,
                             gene1,
                             gene2,

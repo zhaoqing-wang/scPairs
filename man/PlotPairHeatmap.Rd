@@ -42,14 +42,12 @@ Useful for visualising the overall co-expression landscape of top
 synergistic genes or genes of interest.
 }
 \examples{
-\donttest{
 result <- FindAllPairs(scpairs_testdata,
                        n_top_genes = 20,
                        top_n       = 15,
                        mode        = "expression",
                        verbose     = FALSE)
 PlotPairHeatmap(result, top_n = 10)
-}
 
 }
 \seealso{
