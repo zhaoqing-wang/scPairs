@@ -53,13 +53,13 @@
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#'
-#' result <- FindGenePairs(obj, gene = "Gene1", top_n = 5,
-#'   use_neighbourhood = FALSE, verbose = FALSE)
+#' # Find synergistic partners of GENE3.  GENE4 is expected to rank first.
+#' result <- FindGenePairs(scpairs_testdata,
+#'                         gene    = "GENE3",
+#'                         top_n   = 10,
+#'                         mode    = "expression",
+#'                         verbose = FALSE)
+#' print(result)
 #' }
 FindGenePairs <- function(object,
                           gene,

@@ -8,3 +8,4 @@
 ^LICENSE\.md$
 ^README\.Rmd$
 ^\.positai$
+^data-raw$

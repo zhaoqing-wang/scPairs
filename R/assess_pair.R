@@ -55,13 +55,13 @@
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#'
-#' result <- AssessGenePair(obj, gene1 = "Gene1", gene2 = "Gene2",
-#'   use_neighbourhood = FALSE, verbose = FALSE)
+#' # Assess the injected co-expressed pair GENE3 & GENE4.
+#' result <- AssessGenePair(scpairs_testdata,
+#'                          gene1   = "GENE3",
+#'                          gene2   = "GENE4",
+#'                          mode    = "expression",
+#'                          verbose = FALSE)
+#' print(result)
 #' }
 AssessGenePair <- function(object,
                            gene1,

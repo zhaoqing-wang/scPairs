@@ -49,13 +49,8 @@ cluster-specific co-expression patterns.
 }
 \examples{
 \donttest{
-counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-  dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-obj <- Seurat::CreateSeuratObject(counts = counts)
-obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-obj$group <- factor(sample(c("A", "B"), 30, replace = TRUE))
-
-PlotPairScatter(obj, "Gene1", "Gene2", group_by = "group")
+PlotPairScatter(scpairs_testdata, "GENE3", "GENE4",
+               group_by = "seurat_clusters")
 }
 
 }

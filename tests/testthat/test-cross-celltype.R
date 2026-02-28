@@ -1,13 +1,9 @@
+# Tests for cross-cell-type interaction metric
+
 test_that(".cross_celltype_batch computes cross-cell-type scores", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 200, n_genes = 20, n_clusters = 3)
-  mat <- as.matrix(
-    Seurat::GetAssayData(sce, layer = "data")
-  )
-
-  embed <- Seurat::Embeddings(sce, reduction = "pca")
-  cluster_ids <- as.factor(Seurat::Idents(sce))
+  mat        <- as.matrix(Seurat::GetAssayData(scpairs_testdata, layer = "data"))
+  embed      <- Seurat::Embeddings(scpairs_testdata, reduction = "pca")
+  cluster_ids <- as.factor(Seurat::Idents(scpairs_testdata))
 
   pair_dt <- data.table::data.table(
     gene1 = c("GENE1", "GENE3"),
@@ -18,8 +14,6 @@ test_that(".cross_celltype_batch computes cross-cell-type scores", {
 
   expect_length(scores, 2)
   expect_true(is.numeric(scores))
-
-  # Scores should be non-negative (or NA)
   valid <- !is.na(scores)
   if (any(valid)) {
     expect_true(all(scores[valid] >= 0))
@@ -28,103 +22,63 @@ test_that(".cross_celltype_batch computes cross-cell-type scores", {
 })
 
 
-test_that(".cross_celltype returns detailed single-pair result", {
-  skip_if_no_seurat()
+test_that(".cross_celltype returns a valid detailed result", {
+  mat         <- as.matrix(Seurat::GetAssayData(scpairs_testdata, layer = "data"))
+  embed       <- Seurat::Embeddings(scpairs_testdata, reduction = "pca")
+  cluster_ids <- as.factor(Seurat::Idents(scpairs_testdata))
 
-  sce <- create_test_seurat(n_cells = 200, n_genes = 20, n_clusters = 3)
-  mat <- as.matrix(
-    Seurat::GetAssayData(sce, layer = "data")
+  result <- scPairs:::.cross_celltype(
+    mat["GENE3", ], mat["GENE4", ], cluster_ids, embed,
+    n_bins            = 15,
+    min_cells_per_bin = 2,
+    min_bins          = 3
   )
 
-  embed <- Seurat::Embeddings(sce, reduction = "pca")
-  cluster_ids <- as.factor(Seurat::Idents(sce))
-
-  x <- mat["GENE3", ]
-  y <- mat["GENE4", ]
-
-  result <- scPairs:::.cross_celltype(x, y, cluster_ids, embed,
-                                       n_bins = 15,
-                                       min_cells_per_bin = 2,
-                                       min_bins = 3)
-
   expect_type(result, "list")
-  expect_true("score" %in% names(result))
-  expect_true("r_ab" %in% names(result))
-  expect_true("r_ba" %in% names(result))
-  expect_true("n_type_pairs" %in% names(result))
+  expect_true("score"          %in% names(result))
+  expect_true("r_ab"           %in% names(result))
+  expect_true("r_ba"           %in% names(result))
+  expect_true("n_type_pairs"   %in% names(result))
   expect_true("per_celltype_pair" %in% names(result))
-
-  # n_type_pairs should be positive (we have 3 clusters)
   expect_true(result$n_type_pairs > 0)
-
-  # per_celltype_pair should be a data.frame
   expect_s3_class(result$per_celltype_pair, "data.frame")
-
-  # Score bounds
   if (!is.na(result$score)) {
     expect_true(result$score >= 0 && result$score <= 1)
   }
-
-  # Correlations should be in [-1, 1]
-  if (!is.na(result$r_ab)) {
-    expect_true(result$r_ab >= -1 && result$r_ab <= 1)
-  }
-  if (!is.na(result$r_ba)) {
-    expect_true(result$r_ba >= -1 && result$r_ba <= 1)
-  }
+  if (!is.na(result$r_ab)) expect_true(abs(result$r_ab) <= 1)
+  if (!is.na(result$r_ba)) expect_true(abs(result$r_ba) <= 1)
 })
 
 
-test_that("cross_celltype returns NA with insufficient cross-type pairs", {
+test_that("cross_celltype returns NA with a single cluster (no cross-type pairs)", {
   skip_if_no_seurat()
+  # Create a fresh 1-cluster object to test the NA edge case
+  sce1 <- create_test_seurat(n_cells = 50, n_genes = 10, n_clusters = 1)
+  mat         <- as.matrix(Seurat::GetAssayData(sce1, layer = "data"))
+  embed       <- Seurat::Embeddings(sce1, reduction = "pca")
+  cluster_ids <- as.factor(Seurat::Idents(sce1))
 
-  # Single cluster -> no cross-type pairs
-  sce <- create_test_seurat(n_cells = 50, n_genes = 10, n_clusters = 1)
-  mat <- as.matrix(
-    Seurat::GetAssayData(sce, layer = "data")
-  )
-
-  embed <- Seurat::Embeddings(sce, reduction = "pca")
-  cluster_ids <- as.factor(Seurat::Idents(sce))
-
-  x <- mat["GENE1", ]
-  y <- mat["GENE2", ]
-
-  result <- scPairs:::.cross_celltype(x, y, cluster_ids, embed)
+  result <- scPairs:::.cross_celltype(mat["GENE1", ], mat["GENE2", ],
+                                       cluster_ids, embed)
   expect_true(is.na(result$score))
   expect_equal(result$n_type_pairs, 0)
 })
 
 
-test_that("cross_celltype detects trans-cellular correlation", {
+test_that("cross_celltype detects a trans-cellular pattern", {
   skip_if_no_seurat()
-
-  set.seed(123)
-
-  # Create a scenario with known trans-cellular pattern:
-  # Gene A is high in cluster 1, Gene B is high in cluster 2
-  # Clusters 1 and 2 are near each other in PCA space
+  # Build a custom object with a known trans-cellular gradient (cluster-driven)
   n_cells <- 300
   n_genes <- 20
-
-  expr_mat <- matrix(
-    abs(rnorm(n_cells * n_genes, mean = 0.5, sd = 0.5)),
-    nrow = n_genes, ncol = n_cells
-  )
-  rownames(expr_mat) <- paste0("GENE", 1:n_genes)
-  colnames(expr_mat) <- paste0("CELL", 1:n_cells)
-
+  expr_mat <- matrix(abs(rnorm(n_cells * n_genes, 0.5, 0.5)),
+                     nrow = n_genes, ncol = n_cells,
+                     dimnames = list(paste0("GENE", seq_len(n_genes)),
+                                     paste0("CELL", seq_len(n_cells))))
   clusters <- rep(1:3, each = 100)
-
-  # Inject trans-cellular pattern:
-  # GENE1 high in cluster 1 cells, GENE2 high in cluster 2 cells
-  # Both driven by a shared spatial gradient
   gradient <- seq(0.5, 3, length.out = 100)
-  expr_mat["GENE1", 1:100] <- gradient + rnorm(100, 0, 0.2)     # Cluster 1
-  expr_mat["GENE2", 101:200] <- gradient + rnorm(100, 0, 0.2)   # Cluster 2
-
-  # Keep them low in other clusters
-  expr_mat["GENE1", 101:300] <- abs(rnorm(200, 0.1, 0.1))
+  expr_mat["GENE1",   1:100]   <- gradient + rnorm(100, 0, 0.2)
+  expr_mat["GENE2", 101:200]   <- gradient + rnorm(100, 0, 0.2)
+  expr_mat["GENE1", 101:300]   <- abs(rnorm(200, 0.1, 0.1))
   expr_mat["GENE2", c(1:100, 201:300)] <- abs(rnorm(200, 0.1, 0.1))
   expr_mat[expr_mat < 0] <- 0
 
@@ -135,72 +89,51 @@ test_that("cross_celltype detects trans-cellular correlation", {
     sce <- Seurat::ScaleData(sce, verbose = FALSE)
     sce$seurat_clusters <- factor(clusters)
     Seurat::Idents(sce) <- sce$seurat_clusters
-    npcs <- min(10, n_genes - 1)
-    sce <- Seurat::RunPCA(sce, features = paste0("GENE", 1:n_genes),
-                           verbose = FALSE, npcs = npcs)
+    sce <- Seurat::RunPCA(sce, features = paste0("GENE", seq_len(n_genes)),
+                           npcs = min(10, n_genes - 1), verbose = FALSE)
   }))
 
-  mat <- as.matrix(Seurat::GetAssayData(sce, layer = "data"))
-  embed <- Seurat::Embeddings(sce, reduction = "pca")
+  mat         <- as.matrix(Seurat::GetAssayData(sce, layer = "data"))
+  embed       <- Seurat::Embeddings(sce, reduction = "pca")
   cluster_ids <- as.factor(Seurat::Idents(sce))
 
-  # The trans-cellular pair
   result_trans <- scPairs:::.cross_celltype(
     mat["GENE1", ], mat["GENE2", ], cluster_ids, embed,
-    n_bins = 15,
-    min_cells_per_bin = 2,
-    min_bins = 3
+    n_bins = 15, min_cells_per_bin = 2, min_bins = 3
   )
-
-  # A control pair (random genes)
-  result_ctrl <- scPairs:::.cross_celltype(
-    mat["GENE5", ], mat["GENE6", ], cluster_ids, embed,
-    n_bins = 15,
-    min_cells_per_bin = 2,
-    min_bins = 3
-  )
-
-  # The trans-cellular pair should have a non-trivial score
-  # We don't assert it's always higher than control because PCA structure
-
-  # may not perfectly capture our intended neighbourhood structure.
-  # But it should return a valid numeric result.
   expect_true(is.numeric(result_trans$score))
   expect_true(result_trans$n_type_pairs > 0)
 })
 
 
-test_that("FindGenePairs includes cross_celltype_score column", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 200, n_genes = 30, n_clusters = 3)
-
+test_that("FindGenePairs output includes cross_celltype_score column", {
   result <- suppressWarnings(suppressMessages(
-    FindGenePairs(sce,
-                  gene = "GENE3",
-                  candidates = paste0("GENE", c(1, 2, 4, 5, 6, 7, 8)),
-                  use_neighbourhood = TRUE,
-                  n_perm = 0,
-                  verbose = FALSE)
+    FindGenePairs(
+      scpairs_testdata,
+      gene              = "GENE3",
+      candidates        = paste0("GENE", c(1, 2, 4, 5, 6, 7, 8)),
+      use_neighbourhood = TRUE,
+      n_perm            = 0,
+      verbose           = FALSE
+    )
   ))
-
   expect_true("cross_celltype_score" %in% colnames(result$pairs))
 })
 
 
-test_that("AssessGenePair includes cross-cell-type metrics", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 150, n_genes = 15, n_clusters = 3)
-
+test_that("AssessGenePair output includes cross-cell-type metrics", {
   result <- suppressWarnings(suppressMessages(
-    AssessGenePair(sce, gene1 = "GENE3", gene2 = "GENE4",
-                   use_neighbourhood = TRUE,
-                   n_perm = 0, verbose = FALSE)
+    AssessGenePair(
+      scpairs_testdata,
+      gene1             = "GENE3",
+      gene2             = "GENE4",
+      use_neighbourhood = TRUE,
+      n_perm            = 0,
+      verbose           = FALSE
+    )
   ))
-
   expect_true("cross_celltype_score" %in% names(result$metrics))
-  expect_true("cross_celltype_r_ab" %in% names(result$metrics))
-  expect_true("cross_celltype_r_ba" %in% names(result$metrics))
+  expect_true("cross_celltype_r_ab"  %in% names(result$metrics))
+  expect_true("cross_celltype_r_ba"  %in% names(result$metrics))
   expect_true(!is.null(result$cross_celltype_detail))
 })

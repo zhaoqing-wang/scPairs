@@ -10,14 +10,42 @@
     `print.scPairs_pair_result`) documenting the invisible return value.
 
 -   **Replaced `\dontrun{}` with `\donttest{}`** in all example blocks
-    (12 occurrences across 8 source files). Examples require a Seurat
-    object but are otherwise executable, so `\donttest{}` is the
-    appropriate wrapper.
+    across 8 source files. Examples now reference the built-in dataset
+    and are self-contained. Two functions that genuinely require external
+    software (`PlotPairSpatial`, `PlotBridgeNetwork`) retain `\dontrun{}`.
 
 -   **Removed internal `set.seed()`** call from
     `.plot_bridge_network_enhanced()` (`R/plot_synergy.R`). The seed was
     used in a rare MDS-fallback code path; the package no longer sets a
     user-visible seed.
+
+## Built-in Test Dataset
+
+-   **New built-in dataset `scpairs_testdata`**: a minimal synthetic
+    Seurat object (100 cells × 20 genes, 3 balanced clusters, PCA + UMAP)
+    with two injected co-expression patterns — GENE3/GENE4 globally
+    correlated (Pearson r ≈ 0.89) and GENE1/GENE2 cluster-1-specific.
+    The dataset is used by all `\donttest{}` examples and unit tests,
+    providing a consistent, reproducible reference without requiring
+    user-supplied data.  The generation script is in `data-raw/make_testdata.R`.
+
+## Documentation Improvements
+
+-   **Completed documentation** for `PlotPairSummary()` (added `@examples`
+    and a more detailed `@return` description) and `PlotPairSynergy()`
+    (added `@examples` with `\dontrun{}`, expanded `@return` to describe
+    all four panels with fallback behaviour).
+
+-   All `\donttest{}` examples updated to use `scpairs_testdata` with
+    consistent gene names (GENE3/GENE4 as the co-expressed pair).
+
+## Test Suite Improvements
+
+-   All seven test files updated to use `scpairs_testdata` directly,
+    eliminating per-test Seurat pipeline execution and improving
+    reproducibility.  `create_test_seurat()` is retained in the test
+    helper for edge-case tests requiring custom configurations (single
+    cluster, custom gene count, spatial coordinates).
 
 ------------------------------------------------------------------------
 

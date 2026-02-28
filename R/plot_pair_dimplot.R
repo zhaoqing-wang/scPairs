@@ -22,16 +22,8 @@
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#' obj[["umap"]] <- Seurat::CreateDimReducObject(
-#'   embeddings = matrix(rnorm(60), ncol = 2,
-#'     dimnames = list(colnames(obj), c("UMAP_1", "UMAP_2"))),
-#'   key = "UMAP_")
-#'
-#' PlotPairDimplot(obj, gene1 = "Gene1", gene2 = "Gene2")
+#' # scpairs_testdata has a real UMAP embedding; GENE3 & GENE4 are co-expressed.
+#' PlotPairDimplot(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
 #' }
 #'
 PlotPairDimplot <- function(object,
@@ -136,13 +128,8 @@ PlotPairDimplot <- function(object,
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#' obj$group <- factor(sample(c("A", "B"), 30, replace = TRUE))
-#'
-#' PlotPairViolin(obj, "Gene1", "Gene2", group_by = "group")
+#' PlotPairViolin(scpairs_testdata, "GENE3", "GENE4",
+#'               group_by = "seurat_clusters")
 #' }
 #'
 PlotPairViolin <- function(object,
@@ -219,13 +206,8 @@ PlotPairViolin <- function(object,
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#' obj$group <- factor(sample(c("A", "B"), 30, replace = TRUE))
-#'
-#' PlotPairScatter(obj, "Gene1", "Gene2", group_by = "group")
+#' PlotPairScatter(scpairs_testdata, "GENE3", "GENE4",
+#'                group_by = "seurat_clusters")
 #' }
 #'
 PlotPairScatter <- function(object,

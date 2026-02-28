@@ -52,17 +52,27 @@ If NULL, built automatically.}
 \item{pt_size}{Numeric; point size.}
 }
 \value{
-A combined ggplot (patchwork) with panels showing:
+A combined \code{ggplot} (patchwork) with up to 4 panels:
 \enumerate{
-\item UMAP with neighbourhood synergy highlighting
-\item Bridge gene network (enhanced multi-layout graph)
-\item Per-cluster expression evidence
-\item Metric comparison (expression + prior)
+\item UMAP coloured by per-cell neighbourhood synergy score.
+\item Bridge gene network showing shared GO/KEGG pathway intermediaries.
+\item Per-cluster expression bar chart for both genes.
+\item Multi-evidence metric comparison bar chart (expression + prior).
 }
+Falls back gracefully when prior knowledge is unavailable (panels 2 and 4
+are omitted).
 }
 \description{
 Publication-ready multi-panel visualization that integrates prior knowledge,
 expression evidence, and neighbourhood context to show the synergistic
 relationship between two genes.  This goes beyond co-expression to reveal
 \emph{why} two genes may be functionally synergistic.
+}
+\examples{
+\dontrun{
+# Requires Bioconductor annotation packages: org.Hs.eg.db or org.Mm.eg.db
+# and AnnotationDbi.
+PlotPairSynergy(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4",
+                organism = "human")
+}
 }

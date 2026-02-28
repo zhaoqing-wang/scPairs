@@ -43,7 +43,9 @@ If NULL, assessment is run internally.}
 \item{pt_size}{Numeric; point size.}
 }
 \value{
-A combined \code{ggplot} (patchwork).
+A combined \code{ggplot} (patchwork) with up to 10 panels:
+raw UMAP co-expression (3 panels), KNN-smoothed UMAP (3 panels),
+per-cluster expression bar chart, and metric evidence bar chart.
 }
 \description{
 A multi-panel publication-ready figure combining:
@@ -52,5 +54,10 @@ A multi-panel publication-ready figure combining:
 \item KNN-smoothed UMAP (3 panels)
 \item Per-cluster expression comparison
 \item Metric radar/bar chart
+}
+}
+\examples{
+\donttest{
+PlotPairSummary(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
 }
 }

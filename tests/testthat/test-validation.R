@@ -11,19 +11,18 @@ test_that(".validate_min_cells_expressed rejects invalid input", {
   )
 })
 
-test_that(".validate_min_cells_expressed warns for large values", {
+test_that(".validate_min_cells_expressed warns for unusually large values", {
   expect_warning(
     scPairs:::.validate_min_cells_expressed(50, 100),
     "very high"
   )
-  # Should pass silently for reasonable values
   expect_silent(
     scPairs:::.validate_min_cells_expressed(5, 100)
   )
 })
 
 
-test_that(".validate_neighbourhood_params rejects bad k", {
+test_that(".validate_neighbourhood_params rejects bad k values", {
   expect_error(
     scPairs:::.validate_neighbourhood_params("not_a_number", 100),
     "single numeric"
@@ -45,22 +44,14 @@ test_that(".validate_neighbourhood_params warns for large k", {
 })
 
 
-test_that(".validate_percentage rejects out-of-range values", {
-  expect_error(
-    scPairs:::.validate_percentage(-0.1, "alpha"),
-    "between 0 and 1"
-  )
-  expect_error(
-    scPairs:::.validate_percentage(1.5, "alpha"),
-    "between 0 and 1"
-  )
-  expect_silent(
-    scPairs:::.validate_percentage(0.5, "alpha")
-  )
+test_that(".validate_percentage rejects values outside [0, 1]", {
+  expect_error(scPairs:::.validate_percentage(-0.1, "alpha"), "between 0 and 1")
+  expect_error(scPairs:::.validate_percentage( 1.5, "alpha"), "between 0 and 1")
+  expect_silent(scPairs:::.validate_percentage(0.5,  "alpha"))
 })
 
 
-test_that(".validate_cor_method rejects invalid methods", {
+test_that(".validate_cor_method rejects invalid correlation methods", {
   expect_error(
     scPairs:::.validate_cor_method(c("pearson", "invalid")),
     "Invalid"
@@ -69,59 +60,46 @@ test_that(".validate_cor_method rejects invalid methods", {
     scPairs:::.validate_cor_method(character(0)),
     "specified"
   )
-  expect_silent(
-    scPairs:::.validate_cor_method(c("pearson", "spearman"))
-  )
+  expect_silent(scPairs:::.validate_cor_method(c("pearson", "spearman")))
 })
 
 
-test_that(".validate_n_perm rejects negative values", {
+test_that(".validate_n_perm rejects negative values and warns for small counts", {
   expect_error(
     scPairs:::.validate_n_perm(-1),
     "non-negative"
   )
-})
-
-test_that(".validate_n_perm warns for small permutation counts", {
   expect_warning(
     scPairs:::.validate_n_perm(50),
     "< 100"
   )
-  expect_silent(
-    scPairs:::.validate_n_perm(999)
-  )
+  expect_silent(scPairs:::.validate_n_perm(999))
 })
 
 
-test_that(".validate_features detects missing genes", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 50, n_genes = 10)
-
+test_that(".validate_features handles missing genes correctly", {
   # All missing -> error
-
   expect_error(
-    scPairs:::.validate_features(c("NONEXISTENT1", "NONEXISTENT2"), sce),
+    scPairs:::.validate_features(c("NONEXISTENT1", "NONEXISTENT2"), scpairs_testdata),
     "None of the requested features"
   )
 
-  # Some missing -> warning, returns intersection
+  # Some missing -> warning, returns the intersection
   expect_warning(
-    result <- scPairs:::.validate_features(c("GENE1", "NONEXISTENT"), sce),
+    result <- scPairs:::.validate_features(c("GENE1", "NONEXISTENT"), scpairs_testdata),
     "not found"
   )
   expect_equal(result, "GENE1")
 
-  # All present -> silent
+  # All present -> silent pass
   expect_silent(
-    result2 <- scPairs:::.validate_features(c("GENE1", "GENE2"), sce)
+    result2 <- scPairs:::.validate_features(c("GENE1", "GENE2"), scpairs_testdata)
   )
   expect_equal(sort(result2), c("GENE1", "GENE2"))
 })
 
 
-test_that(".validate_binning_params detects infeasible parameters", {
-  # Warn when parameters are too strict
+test_that(".validate_binning_params warns for infeasible parameters", {
   expect_warning(
     scPairs:::.validate_binning_params(
       n_bins = 100, min_cells_per_bin = 5,
@@ -129,8 +107,6 @@ test_that(".validate_binning_params detects infeasible parameters", {
     ),
     "too strict"
   )
-
-  # Pass for reasonable params
   expect_silent(
     scPairs:::.validate_binning_params(
       n_bins = 10, min_cells_per_bin = 3,

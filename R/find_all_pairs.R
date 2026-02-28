@@ -63,14 +63,14 @@
 #'
 #' @examples
 #' \donttest{
-#' # Create a minimal Seurat object for demonstration
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#'
-#' result <- FindAllPairs(obj, n_top_genes = 20, top_n = 10,
-#'   use_neighbourhood = FALSE, verbose = FALSE)
+#' # scpairs_testdata is a built-in Seurat object with 100 cells x 20 genes.
+#' # GENE3 & GENE4 are injected as the top co-expressed pair.
+#' result <- FindAllPairs(scpairs_testdata,
+#'                        n_top_genes = 20,
+#'                        top_n       = 10,
+#'                        mode        = "expression",
+#'                        verbose     = FALSE)
+#' print(result)
 #' }
 FindAllPairs <- function(object,
                          features              = NULL,

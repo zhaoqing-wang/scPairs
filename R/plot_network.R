@@ -28,14 +28,12 @@
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#' result <- FindAllPairs(obj, n_top_genes = 20, top_n = 10,
-#'   use_neighbourhood = FALSE, verbose = FALSE)
-#'
-#' PlotPairNetwork(result, top_n = 5)
+#' result <- FindAllPairs(scpairs_testdata,
+#'                        n_top_genes = 20,
+#'                        top_n       = 10,
+#'                        mode        = "expression",
+#'                        verbose     = FALSE)
+#' PlotPairNetwork(result, top_n = 8)
 #' }
 #'
 PlotPairNetwork <- function(result,

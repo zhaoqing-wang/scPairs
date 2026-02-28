@@ -1,11 +1,10 @@
 test_that("AssessGenePair returns correct structure", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 100, n_genes = 15)
-
   result <- AssessGenePair(
-    sce, gene1 = "GENE3", gene2 = "GENE4",
-    n_perm = 0, verbose = FALSE
+    scpairs_testdata,
+    gene1   = "GENE3",
+    gene2   = "GENE4",
+    n_perm  = 0,
+    verbose = FALSE
   )
 
   expect_s3_class(result, "scPairs_pair_result")
@@ -14,38 +13,39 @@ test_that("AssessGenePair returns correct structure", {
   expect_true(is.numeric(result$synergy_score))
   expect_true(result$synergy_score >= 0 && result$synergy_score <= 1)
   expect_true(is.data.frame(result$per_cluster))
-  expect_true("cor_pearson" %in% names(result$metrics))
+  expect_true("cor_pearson"  %in% names(result$metrics))
   expect_true("jaccard_index" %in% names(result$metrics))
 })
 
 
-test_that("AssessGenePair gives high score for known co-expressed pair", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 200, n_genes = 15)
-
+test_that("AssessGenePair gives higher score for known co-expressed pair", {
   result_good <- AssessGenePair(
-    sce, gene1 = "GENE3", gene2 = "GENE4",
-    n_perm = 0, verbose = FALSE
+    scpairs_testdata,
+    gene1   = "GENE3",
+    gene2   = "GENE4",
+    n_perm  = 0,
+    verbose = FALSE
   )
 
   result_bad <- AssessGenePair(
-    sce, gene1 = "GENE3", gene2 = "GENE10",
-    n_perm = 0, verbose = FALSE
+    scpairs_testdata,
+    gene1   = "GENE3",
+    gene2   = "GENE10",
+    n_perm  = 0,
+    verbose = FALSE
   )
 
   expect_true(result_good$synergy_score > result_bad$synergy_score)
 })
 
 
-test_that("AssessGenePair permutation test works", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 100, n_genes = 10)
-
+test_that("AssessGenePair permutation p-value is in [0, 1]", {
   result <- AssessGenePair(
-    sce, gene1 = "GENE3", gene2 = "GENE4",
-    n_perm = 49, verbose = FALSE
+    scpairs_testdata,
+    gene1   = "GENE3",
+    gene2   = "GENE4",
+    n_perm  = 49,
+    verbose = FALSE
   )
 
   expect_true(!is.na(result$p_value))
@@ -54,13 +54,10 @@ test_that("AssessGenePair permutation test works", {
 })
 
 
-test_that("AssessGenePair errors for same gene", {
-  skip_if_no_seurat()
-
-  sce <- create_test_seurat(n_cells = 50, n_genes = 10)
-
+test_that("AssessGenePair errors when gene1 == gene2", {
   expect_error(
-    AssessGenePair(sce, gene1 = "GENE1", gene2 = "GENE1", verbose = FALSE),
+    AssessGenePair(scpairs_testdata,
+                   gene1 = "GENE1", gene2 = "GENE1", verbose = FALSE),
     "must be different"
   )
 })

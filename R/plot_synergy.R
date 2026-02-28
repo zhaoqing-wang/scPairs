@@ -22,13 +22,25 @@
 #' @param top_bridges Integer; maximum bridge genes to show.
 #' @param pt_size Numeric; point size.
 #'
-#' @return A combined ggplot (patchwork) with panels showing:
-#'   1. UMAP with neighbourhood synergy highlighting
-#'   2. Bridge gene network (enhanced multi-layout graph)
-#'   3. Per-cluster expression evidence
-#'   4. Metric comparison (expression + prior)
+#' @return A combined \code{ggplot} (patchwork) with up to 4 panels:
+#' \enumerate{
+#'   \item UMAP coloured by per-cell neighbourhood synergy score.
+#'   \item Bridge gene network showing shared GO/KEGG pathway intermediaries.
+#'   \item Per-cluster expression bar chart for both genes.
+#'   \item Multi-evidence metric comparison bar chart (expression + prior).
+#' }
+#' Falls back gracefully when prior knowledge is unavailable (panels 2 and 4
+#' are omitted).
 #'
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Requires Bioconductor annotation packages: org.Hs.eg.db or org.Mm.eg.db
+#' # and AnnotationDbi.
+#' PlotPairSynergy(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4",
+#'                 organism = "human")
+#' }
 PlotPairSynergy <- function(object,
                             gene1,
                             gene2,

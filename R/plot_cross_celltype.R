@@ -43,18 +43,10 @@
 #'
 #' @examples
 #' \donttest{
-#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
-#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
-#' obj <- Seurat::CreateSeuratObject(counts = counts)
-#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
-#' obj$seurat_clusters <- factor(sample(1:3, 30, replace = TRUE))
-#' Seurat::Idents(obj) <- "seurat_clusters"
-#' obj[["pca"]] <- Seurat::CreateDimReducObject(
-#'   embeddings = matrix(rnorm(300), ncol = 10,
-#'     dimnames = list(colnames(obj), paste0("PC_", 1:10))),
-#'   key = "PC_")
-#'
-#' PlotPairCrossType(obj, gene1 = "Gene1", gene2 = "Gene2")
+#' # scpairs_testdata has clusters (seurat_clusters) and PCA already built in.
+#' PlotPairCrossType(scpairs_testdata,
+#'                  gene1 = "GENE3",
+#'                  gene2 = "GENE4")
 #' }
 #'
 PlotPairCrossType <- function(object,
