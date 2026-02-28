@@ -40,13 +40,13 @@ test_that("AssessGenePair gives higher score for known co-expressed pair", {
 
 
 test_that("AssessGenePair permutation p-value is in [0, 1]", {
-  result <- AssessGenePair(
+  result <- suppressWarnings(AssessGenePair(
     scpairs_testdata,
     gene1   = "GENE3",
     gene2   = "GENE4",
     n_perm  = 49,
     verbose = FALSE
-  )
+  ))
 
   expect_true(!is.na(result$p_value))
   expect_true(result$p_value > 0 && result$p_value <= 1)

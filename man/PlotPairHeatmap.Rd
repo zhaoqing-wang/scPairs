@@ -33,7 +33,8 @@ Default TRUE.}
 \item{title}{Character; plot title.}
 }
 \value{
-A \code{ggplot} object.
+A \code{ggplot} object; rows and columns are genes, fill encodes synergy
+score.
 }
 \description{
 Displays a symmetric heatmap of synergy scores among a set of genes.
@@ -51,3 +52,20 @@ PlotPairHeatmap(result, top_n = 10)
 }
 
 }
+\seealso{
+\code{\link{FindAllPairs}}, \code{\link{FindGenePairs}},
+\code{\link{PlotPairNetwork}} for an alternative network view.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

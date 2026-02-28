@@ -49,6 +49,12 @@
 #'   \item{`mode`}{Character.}
 #' }
 #'
+#' @family Section_1_Discovery
+#'
+#' @seealso \code{\link{FindAllPairs}} for genome-wide screening,
+#'   \code{\link{AssessGenePair}} for in-depth single-pair assessment,
+#'   \code{\link{PlotPairNetwork}} for visualising partner networks.
+#'
 #' @export
 #'
 #' @examples

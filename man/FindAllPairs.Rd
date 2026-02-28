@@ -127,3 +127,14 @@ result <- FindAllPairs(scpairs_testdata,
 print(result)
 }
 }
+\seealso{
+\code{\link{FindGenePairs}} for query-centric partner search,
+\code{\link{AssessGenePair}} for in-depth single-pair assessment,
+\code{\link{PlotPairNetwork}} and \code{\link{PlotPairHeatmap}} for
+visualising discovery results.
+
+Other Section_1_Discovery: 
+\code{\link{AssessGenePair}()},
+\code{\link{FindGenePairs}()}
+}
+\concept{Section_1_Discovery}

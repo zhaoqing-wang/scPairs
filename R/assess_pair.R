@@ -51,6 +51,13 @@
 #'   \item{`mode`}{Character.}
 #' }
 #'
+#' @family Section_1_Discovery
+#'
+#' @seealso \code{\link{FindAllPairs}} for genome-wide screening,
+#'   \code{\link{FindGenePairs}} for query-centric partner search,
+#'   \code{\link{PlotPairSynergy}} and \code{\link{PlotPairSummary}} for
+#'   visualising pair-level evidence.
+#'
 #' @export
 #'
 #' @examples

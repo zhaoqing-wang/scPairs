@@ -16,7 +16,13 @@
 #' @param high_color Character; colour for high scores.
 #' @param title Character; plot title.
 #'
-#' @return A `ggplot` object.
+#' @return A `ggplot` object; rows and columns are genes, fill encodes synergy
+#'   score.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{FindAllPairs}}, \code{\link{FindGenePairs}},
+#'   \code{\link{PlotPairNetwork}} for an alternative network view.
 #'
 #' @export
 #'

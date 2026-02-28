@@ -44,7 +44,7 @@ test_that(".compute_ratio_consistency dispatches correctly", {
   expect_true(rc_single >= 0 && rc_single <= 1)
   expect_equal(rc_single, scPairs:::.ratio_consistency(x, y, cl))
 
-  mat      <- rbind(x, y, rnorm(n))
+  mat      <- rbind(x, y, abs(rnorm(n)))
   pair_idx <- matrix(c(1, 2, 1, 3), nrow = 2)
   rc_batch <- scPairs:::.compute_ratio_consistency(mat,
                                                    pair_idx   = pair_idx,

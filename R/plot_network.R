@@ -22,7 +22,13 @@
 #' @param title Character; plot title.
 #' @param show_legend Logical.
 #'
-#' @return A `ggplot` object.
+#' @return A `ggplot` object; nodes are genes, edges are gene pairs coloured
+#'   and weighted by synergy score.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{FindAllPairs}}, \code{\link{FindGenePairs}},
+#'   \code{\link{PlotPairHeatmap}} for an alternative matrix view.
 #'
 #' @export
 #'

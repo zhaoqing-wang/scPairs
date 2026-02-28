@@ -118,3 +118,13 @@ result <- FindGenePairs(scpairs_testdata,
 print(result)
 }
 }
+\seealso{
+\code{\link{FindAllPairs}} for genome-wide screening,
+\code{\link{AssessGenePair}} for in-depth single-pair assessment,
+\code{\link{PlotPairNetwork}} for visualising partner networks.
+
+Other Section_1_Discovery: 
+\code{\link{AssessGenePair}()},
+\code{\link{FindAllPairs}()}
+}
+\concept{Section_1_Discovery}

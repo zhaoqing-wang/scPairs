@@ -59,6 +59,13 @@
 #'   \item{`mode`}{Character; the mode used.}
 #' }
 #'
+#' @family Section_1_Discovery
+#'
+#' @seealso \code{\link{FindGenePairs}} for query-centric partner search,
+#'   \code{\link{AssessGenePair}} for in-depth single-pair assessment,
+#'   \code{\link{PlotPairNetwork}} and \code{\link{PlotPairHeatmap}} for
+#'   visualising discovery results.
+#'
 #' @export
 #'
 #' @examples

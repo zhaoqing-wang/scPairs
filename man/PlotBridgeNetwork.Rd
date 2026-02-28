@@ -87,3 +87,21 @@ PlotBridgeNetwork(seurat_obj, gene1 = "Adora2a", gene2 = "Ido1",
                   organism = "mouse")
 }
 }
+\seealso{
+\code{\link{PlotPairSynergy}} for the 4-panel synergy dashboard
+that embeds this network as one panel, \code{\link{AssessGenePair}} for
+extracting bridge genes programmatically.
+
+Other Section_2_Visualization: 
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

@@ -21,7 +21,14 @@
 #' @param pt_alpha Numeric; point alpha.
 #' @param title Character; overall title.
 #'
-#' @return A combined `ggplot` (patchwork) with 6 panels.
+#' @return A combined \code{ggplot} (patchwork) with 6 panels: three showing
+#'   raw expression and three showing KNN-smoothed expression, for \code{gene1},
+#'   \code{gene2}, and their co-expression product.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairDimplot}} for the raw-only 3-panel variant,
+#'   \code{\link{PlotPairSummary}} for a comprehensive multi-evidence summary.
 #'
 #' @export
 #'
@@ -156,6 +163,10 @@ PlotPairSmoothed <- function(object,
 #' @return A combined \code{ggplot} (patchwork) with up to 10 panels:
 #'   raw UMAP co-expression (3 panels), KNN-smoothed UMAP (3 panels),
 #'   per-cluster expression bar chart, and metric evidence bar chart.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairSmoothed}}, \code{\link{AssessGenePair}}.
 #'
 #' @export
 #'

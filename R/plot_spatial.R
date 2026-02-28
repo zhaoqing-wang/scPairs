@@ -19,7 +19,15 @@
 #' @param alpha Numeric; point alpha.
 #' @param title Character; overall title.
 #'
-#' @return A combined `ggplot` (via patchwork).
+#' @return A combined \code{ggplot} (patchwork) with three panels: spatial
+#'   expression of \code{gene1}, spatial expression of \code{gene2}, and their
+#'   co-expression product, overlaid on physical tissue coordinates.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairDimplot}} for UMAP-based display,
+#'   \code{\link{FindAllPairs}} which automatically computes spatial metrics
+#'   when a spatial modality is detected.
 #'
 #' @export
 #'

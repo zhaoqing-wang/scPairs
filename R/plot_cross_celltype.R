@@ -37,7 +37,14 @@
 #'     centred at 0.  Default TRUE.
 #' @param title Character; overall title.  NULL = auto-generated.
 #'
-#' @return A `ggplot` object (or two-panel patchwork if `show_reverse = TRUE`).
+#' @return A \code{ggplot} heatmap (or two-panel patchwork when
+#'   \code{show_reverse = TRUE}) with cell-type pairs on axes and synergy
+#'   enrichment encoded by colour.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{AssessGenePair}} for cross-cell-type metrics,
+#'   \code{\link{PlotPairDimplot}} for individual-cell UMAP display.
 #'
 #' @export
 #'

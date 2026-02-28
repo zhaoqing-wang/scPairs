@@ -32,6 +32,11 @@
 #' Falls back gracefully when prior knowledge is unavailable (panels 2 and 4
 #' are omitted).
 #'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotBridgeNetwork}} for a standalone bridge gene
+#'   network, \code{\link{AssessGenePair}} for the underlying metrics.
+#'
 #' @export
 #'
 #' @examples
@@ -335,6 +340,12 @@ PlotPairSynergy <- function(object,
 #'   blue = gene2) connect focal genes to bridge genes, with width proportional
 #'   to shared term count.  Thin dotted grey lines between bridge genes encode
 #'   Jaccard pathway similarity.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairSynergy}} for the 4-panel synergy dashboard
+#'   that embeds this network as one panel, \code{\link{AssessGenePair}} for
+#'   extracting bridge genes programmatically.
 #'
 #' @export
 #'

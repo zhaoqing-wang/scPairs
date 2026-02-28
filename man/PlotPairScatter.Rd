@@ -40,7 +40,8 @@ package.}
 \item{title}{Character.}
 }
 \value{
-A \code{ggplot}.
+A \code{ggplot} scatter plot; cells are coloured by cluster/group,
+with optional marginal density panels when \pkg{ggExtra} is installed.
 }
 \description{
 Plots cell-level expression of gene1 vs. gene2 as a scatter plot, coloured
@@ -54,3 +55,19 @@ PlotPairScatter(scpairs_testdata, "GENE3", "GENE4",
 }
 
 }
+\seealso{
+\code{\link{PlotPairViolin}}, \code{\link{PlotPairDimplot}}.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

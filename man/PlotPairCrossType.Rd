@@ -63,7 +63,9 @@ centred at 0.  Default TRUE.}
 \item{title}{Character; overall title.  NULL = auto-generated.}
 }
 \value{
-A \code{ggplot} object (or two-panel patchwork if \code{show_reverse = TRUE}).
+A \code{ggplot} heatmap (or two-panel patchwork when
+\code{show_reverse = TRUE}) with cell-type pairs on axes and synergy
+enrichment encoded by colour.
 }
 \description{
 Visualises the cross-cell-type interaction structure for a gene pair as a
@@ -86,3 +88,20 @@ PlotPairCrossType(scpairs_testdata,
 }
 
 }
+\seealso{
+\code{\link{AssessGenePair}} for cross-cell-type metrics,
+\code{\link{PlotPairDimplot}} for individual-cell UMAP display.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

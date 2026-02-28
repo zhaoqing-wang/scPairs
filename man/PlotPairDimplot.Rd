@@ -36,7 +36,9 @@ PlotPairDimplot(
 \item{title}{Character; overall title.}
 }
 \value{
-A combined \code{ggplot} (patchwork).
+A combined \code{ggplot} (patchwork) of three panels: individual
+gene expression and their co-expression product, all overlaid on the
+dimensionality-reduction embedding.
 }
 \description{
 Displays the co-expression of two genes on the UMAP (or other reduction)
@@ -51,3 +53,21 @@ PlotPairDimplot(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
 }
 
 }
+\seealso{
+\code{\link{PlotPairSmoothed}} for KNN-smoothed panels,
+\code{\link{PlotPairScatter}} for gene-gene scatter,
+\code{\link{PlotPairSpatial}} for spatial data.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

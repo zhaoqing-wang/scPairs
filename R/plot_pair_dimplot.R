@@ -16,7 +16,15 @@
 #' @param alpha Numeric; point alpha.
 #' @param title Character; overall title.
 #'
-#' @return A combined `ggplot` (patchwork).
+#' @return A combined \code{ggplot} (patchwork) of three panels: individual
+#'   gene expression and their co-expression product, all overlaid on the
+#'   dimensionality-reduction embedding.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairSmoothed}} for KNN-smoothed panels,
+#'   \code{\link{PlotPairScatter}} for gene-gene scatter,
+#'   \code{\link{PlotPairSpatial}} for spatial data.
 #'
 #' @export
 #'
@@ -122,7 +130,12 @@ PlotPairDimplot <- function(object,
 #' @param pt_size Point size for jitter (0 = no points).
 #' @param title Character.
 #'
-#' @return A `ggplot`.
+#' @return A \code{ggplot} with violin (and optional jitter) panels for
+#'   \code{gene1}, \code{gene2}, and their expression product, split by group.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairScatter}}, \code{\link{PlotPairDimplot}}.
 #'
 #' @export
 #'
@@ -200,7 +213,12 @@ PlotPairViolin <- function(object,
 #'     package.
 #' @param title Character.
 #'
-#' @return A `ggplot`.
+#' @return A \code{ggplot} scatter plot; cells are coloured by cluster/group,
+#'   with optional marginal density panels when \pkg{ggExtra} is installed.
+#'
+#' @family Section_2_Visualization
+#'
+#' @seealso \code{\link{PlotPairViolin}}, \code{\link{PlotPairDimplot}}.
 #'
 #' @export
 #'

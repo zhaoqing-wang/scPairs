@@ -44,7 +44,8 @@ or a \code{data.frame} / \code{data.table} with columns \code{gene1}, \code{gene
 \item{show_legend}{Logical.}
 }
 \value{
-A \code{ggplot} object.
+A \code{ggplot} object; nodes are genes, edges are gene pairs coloured
+and weighted by synergy score.
 }
 \description{
 Draws a publication-ready gene interaction network from scPairs results.
@@ -63,3 +64,20 @@ PlotPairNetwork(result, top_n = 8)
 }
 
 }
+\seealso{
+\code{\link{FindAllPairs}}, \code{\link{FindGenePairs}},
+\code{\link{PlotPairHeatmap}} for an alternative matrix view.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

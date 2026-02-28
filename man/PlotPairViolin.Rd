@@ -33,7 +33,8 @@ PlotPairViolin(
 \item{title}{Character.}
 }
 \value{
-A \code{ggplot}.
+A \code{ggplot} with violin (and optional jitter) panels for
+\code{gene1}, \code{gene2}, and their expression product, split by group.
 }
 \description{
 Displays side-by-side violin plots of two genes across cell clusters or
@@ -47,3 +48,19 @@ PlotPairViolin(scpairs_testdata, "GENE3", "GENE4",
 }
 
 }
+\seealso{
+\code{\link{PlotPairScatter}}, \code{\link{PlotPairDimplot}}.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()}
+}
+\concept{Section_2_Visualization}

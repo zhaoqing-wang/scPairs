@@ -76,3 +76,20 @@ PlotPairSynergy(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4",
                 organism = "human")
 }
 }
+\seealso{
+\code{\link{PlotBridgeNetwork}} for a standalone bridge gene
+network, \code{\link{AssessGenePair}} for the underlying metrics.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

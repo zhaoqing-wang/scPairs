@@ -45,7 +45,9 @@ PlotPairSmoothed(
 \item{title}{Character; overall title.}
 }
 \value{
-A combined \code{ggplot} (patchwork) with 6 panels.
+A combined \code{ggplot} (patchwork) with 6 panels: three showing
+raw expression and three showing KNN-smoothed expression, for \code{gene1},
+\code{gene2}, and their co-expression product.
 }
 \description{
 A six-panel visualization that shows both raw and KNN-smoothed expression
@@ -62,3 +64,20 @@ PlotPairSmoothed(scpairs_testdata, gene1 = "GENE3", gene2 = "GENE4")
 }
 
 }
+\seealso{
+\code{\link{PlotPairDimplot}} for the raw-only 3-panel variant,
+\code{\link{PlotPairSummary}} for a comprehensive multi-evidence summary.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSpatial}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}

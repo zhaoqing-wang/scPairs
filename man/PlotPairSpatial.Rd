@@ -33,7 +33,9 @@ PlotPairSpatial(
 \item{title}{Character; overall title.}
 }
 \value{
-A combined \code{ggplot} (via patchwork).
+A combined \code{ggplot} (patchwork) with three panels: spatial
+expression of \code{gene1}, spatial expression of \code{gene2}, and their
+co-expression product, overlaid on physical tissue coordinates.
 }
 \description{
 For spatial transcriptomics data, visualises the spatial distribution of
@@ -53,3 +55,21 @@ PlotPairSpatial(spatial_obj, gene1 = "CD8A", gene2 = "CD8B")
 }
 
 }
+\seealso{
+\code{\link{PlotPairDimplot}} for UMAP-based display,
+\code{\link{FindAllPairs}} which automatically computes spatial metrics
+when a spatial modality is detected.
+
+Other Section_2_Visualization: 
+\code{\link{PlotBridgeNetwork}()},
+\code{\link{PlotPairCrossType}()},
+\code{\link{PlotPairDimplot}()},
+\code{\link{PlotPairHeatmap}()},
+\code{\link{PlotPairNetwork}()},
+\code{\link{PlotPairScatter}()},
+\code{\link{PlotPairSmoothed}()},
+\code{\link{PlotPairSummary}()},
+\code{\link{PlotPairSynergy}()},
+\code{\link{PlotPairViolin}()}
+}
+\concept{Section_2_Visualization}
