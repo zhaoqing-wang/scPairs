@@ -11,6 +11,9 @@
 
 \item{...}{Ignored.}
 }
+\value{
+The input object \code{x}, returned invisibly.
+}
 \description{
 Print method for scPairs_result
 }

@@ -45,8 +45,17 @@ their element-wise product (co-expression intensity).  This allows visual
 assessment of whether co-expressing cells cluster together.
 }
 \examples{
-\dontrun{
-PlotPairDimplot(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
+\donttest{
+counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+  dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+obj <- Seurat::CreateSeuratObject(counts = counts)
+obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+obj[["umap"]] <- Seurat::CreateDimReducObject(
+  embeddings = matrix(rnorm(60), ncol = 2,
+    dimnames = list(colnames(obj), c("UMAP_1", "UMAP_2"))),
+  key = "UMAP_")
+
+PlotPairDimplot(obj, gene1 = "Gene1", gene2 = "Gene2")
 }
 
 }

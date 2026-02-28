@@ -42,12 +42,19 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' PlotPairCrossType(seurat_obj, gene1 = "Adora2a", gene2 = "Ido1")
+#' \donttest{
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+#' obj$seurat_clusters <- factor(sample(1:3, 30, replace = TRUE))
+#' Seurat::Idents(obj) <- "seurat_clusters"
+#' obj[["pca"]] <- Seurat::CreateDimReducObject(
+#'   embeddings = matrix(rnorm(300), ncol = 10,
+#'     dimnames = list(colnames(obj), paste0("PC_", 1:10))),
+#'   key = "PC_")
 #'
-#' # Pass a pre-computed result to avoid re-computation
-#' res <- AssessGenePair(seurat_obj, "Adora2a", "Ido1")
-#' PlotPairCrossType(seurat_obj, "Adora2a", "Ido1", result = res)
+#' PlotPairCrossType(obj, gene1 = "Gene1", gene2 = "Gene2")
 #' }
 #'
 PlotPairCrossType <- function(object,

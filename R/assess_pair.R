@@ -54,13 +54,14 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' result <- AssessGenePair(seurat_obj, gene1 = "CD8A", gene2 = "CD8B")
-#' print(result)
+#' \donttest{
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
 #'
-#' # Prior knowledge only
-#' result <- AssessGenePair(seurat_obj, "Adora2a", "Ido1",
-#'                           mode = "prior_only", organism = "mouse")
+#' result <- AssessGenePair(obj, gene1 = "Gene1", gene2 = "Gene2",
+#'   use_neighbourhood = FALSE, verbose = FALSE)
 #' }
 AssessGenePair <- function(object,
                            gene1,
@@ -415,6 +416,10 @@ AssessGenePair <- function(object,
 }
 
 
+#' Print method for scPairs_pair_result
+#' @param x An scPairs_pair_result object.
+#' @param ... Ignored.
+#' @return The input object \code{x}, returned invisibly.
 #' @export
 #' @method print scPairs_pair_result
 print.scPairs_pair_result <- function(x, ...) {

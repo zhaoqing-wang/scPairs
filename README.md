@@ -224,6 +224,6 @@ https://github.com/zhaoqing-wang/scPairs
 
 [MIT](LICENSE.md)
 
-## 7.Contact
+## 7. Contact
 
 **Author:** Zhaoqing Wang ([ORCID](https://orcid.org/0000-0001-8348-7245)) | **Email:** <zhaoqingwang@mail.sdu.edu.cn> | **Issues:** [scPairs Issues](https://github.com/zhaoqing-wang/scPairs/issues)

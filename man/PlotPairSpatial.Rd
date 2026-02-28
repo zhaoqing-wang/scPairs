@@ -48,6 +48,7 @@ genes are simultaneously active.
 }
 \examples{
 \dontrun{
+# Requires a Seurat object with spatial assay (e.g. Visium, MERFISH)
 PlotPairSpatial(spatial_obj, gene1 = "CD8A", gene2 = "CD8B")
 }
 

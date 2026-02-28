@@ -62,15 +62,15 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' # Default: all metrics
-#' result <- FindAllPairs(seurat_obj, n_top_genes = 500, top_n = 100)
+#' \donttest{
+#' # Create a minimal Seurat object for demonstration
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
 #'
-#' # Expression only (skip prior knowledge)
-#' result <- FindAllPairs(seurat_obj, mode = "expression")
-#'
-#' # Prior knowledge only (fast screening)
-#' result <- FindAllPairs(seurat_obj, mode = "prior_only")
+#' result <- FindAllPairs(obj, n_top_genes = 20, top_n = 10,
+#'   use_neighbourhood = FALSE, verbose = FALSE)
 #' }
 FindAllPairs <- function(object,
                          features              = NULL,
@@ -246,6 +246,7 @@ FindAllPairs <- function(object,
 #' Print method for scPairs_result
 #' @param x An scPairs_result object.
 #' @param ... Ignored.
+#' @return The input object \code{x}, returned invisibly.
 #' @export
 #' @method print scPairs_result
 print.scPairs_result <- function(x, ...) {

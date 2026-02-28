@@ -1,3 +1,26 @@
+# scPairs 0.1.8 (2026-02-28)
+
+## CRAN Submission Fixes
+
+-   **Added reference URL** in the `DESCRIPTION` `Description` field as
+    requested by CRAN reviewers.
+
+-   **Added `\value` tags** to all exported `print()` S3 methods
+    (`print.scPairs_result`, `print.scPairs_gene_result`,
+    `print.scPairs_pair_result`) documenting the invisible return value.
+
+-   **Replaced `\dontrun{}` with `\donttest{}`** in all example blocks
+    (12 occurrences across 8 source files). Examples require a Seurat
+    object but are otherwise executable, so `\donttest{}` is the
+    appropriate wrapper.
+
+-   **Removed internal `set.seed()`** call from
+    `.plot_bridge_network_enhanced()` (`R/plot_synergy.R`). The seed was
+    used in a rare MDS-fallback code path; the package no longer sets a
+    user-visible seed.
+
+------------------------------------------------------------------------
+
 # scPairs 0.1.7 (2026-02-23)
 
 ## Bridge Gene Network Visualization

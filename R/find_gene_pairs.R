@@ -52,9 +52,14 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' result <- FindGenePairs(seurat_obj, gene = "TP53", top_n = 20)
-#' PlotPairNetwork(result)
+#' \donttest{
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+#'
+#' result <- FindGenePairs(obj, gene = "Gene1", top_n = 5,
+#'   use_neighbourhood = FALSE, verbose = FALSE)
 #' }
 FindGenePairs <- function(object,
                           gene,
@@ -241,6 +246,10 @@ FindGenePairs <- function(object,
 }
 
 
+#' Print method for scPairs_gene_result
+#' @param x An scPairs_gene_result object.
+#' @param ... Ignored.
+#' @return The input object \code{x}, returned invisibly.
 #' @export
 #' @method print scPairs_gene_result
 print.scPairs_gene_result <- function(x, ...) {

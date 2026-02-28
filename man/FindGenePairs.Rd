@@ -108,8 +108,13 @@ The \code{mode} parameter controls which metric layers are computed:
 }
 }
 \examples{
-\dontrun{
-result <- FindGenePairs(seurat_obj, gene = "TP53", top_n = 20)
-PlotPairNetwork(result)
+\donttest{
+counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+  dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+obj <- Seurat::CreateSeuratObject(counts = counts)
+obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+
+result <- FindGenePairs(obj, gene = "Gene1", top_n = 5,
+  use_neighbourhood = FALSE, verbose = FALSE)
 }
 }

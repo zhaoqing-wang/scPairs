@@ -4,7 +4,7 @@
     msg <- paste0(
       "Please cite: Wang Z (2026). ",
       crayon::italic(
-        "scPairs: Go Beyond Marker Genes - Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps."
+        "scPairs: Identifying Synergistic Gene Pairs in single-Cell and Spatial Transcriptomics."
       ),
       " R package version", crayon::bold(paste0(" ", pkg_version, ".")),
       " Available at: https://github.com/zhaoqing-wang/scPairs"
@@ -12,7 +12,7 @@
   } else {
     msg <- paste0(
       "Please cite: Wang Z (2026). ",
-      "scPairs: Go Beyond Marker Genes - Discover Synergistic Gene Pairs in scRNA-seq and Spatial Maps. ",
+      "scPairs: Identifying Synergistic Gene Pairs in single-Cell and Spatial Transcriptomics. ",
       "R package version ", pkg_version, ". Available at: https://github.com/zhaoqing-wang/scPairs"
     )
   }

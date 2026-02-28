@@ -1,5 +1,5 @@
 Package: scPairs
-Version: 0.1.7
+Version: 0.1.8
 Title: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 Description: Discovers synergistic gene pairs in single-cell RNA-seq and spatial
     transcriptomics data. Integrates 14 metrics across five evidence layers:
@@ -18,6 +18,8 @@ Description: Discovers synergistic gene pairs in single-cell RNA-seq and spatial
     renders prior-knowledge pathway connections as a spatially rich,
     weighted-edge graph with automatic layout selection, expression-coded
     nodes, and shared-term-weighted edges.
+    For more information, see the package documentation at
+    <https://github.com/zhaoqing-wang/scPairs>.
 Authors@R: 
     person(given = "Zhaoqing", family = "Wang",
            email = "zhaoqingwang@mail.sdu.edu.cn",
@@ -54,5 +56,5 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Date: 2026-02-23
+Date: 2026-02-28
 

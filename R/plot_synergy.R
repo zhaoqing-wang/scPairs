@@ -328,13 +328,9 @@ PlotPairSynergy <- function(object,
 #'
 #' @examples
 #' \dontrun{
-#' # Basic bridge network for a gene pair
+#' # Requires Bioconductor annotation packages (org.Hs.eg.db or org.Mm.eg.db)
 #' PlotBridgeNetwork(seurat_obj, gene1 = "Adora2a", gene2 = "Ido1",
 #'                   organism = "mouse")
-#'
-#' # Show more bridge genes, lower similarity threshold for dotted lines
-#' PlotBridgeNetwork(seurat_obj, gene1 = "CD8A", gene2 = "CD8B",
-#'                   top_bridges = 20, sim_threshold = 0.08)
 #' }
 PlotBridgeNetwork <- function(object,
                                gene1,
@@ -479,7 +475,6 @@ PlotBridgeNetwork <- function(object,
     stats::cmdscale(dist_mat, k = 2),
     error = function(e) {
       # Fallback: random 2D positions
-      set.seed(1L)
       matrix(stats::rnorm(n_all * 2), n_all, 2,
              dimnames = list(all_g, c("V1", "V2")))
     }

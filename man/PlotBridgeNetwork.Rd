@@ -82,12 +82,8 @@ revealing functional clusters among the intermediaries.
 }
 \examples{
 \dontrun{
-# Basic bridge network for a gene pair
+# Requires Bioconductor annotation packages (org.Hs.eg.db or org.Mm.eg.db)
 PlotBridgeNetwork(seurat_obj, gene1 = "Adora2a", gene2 = "Ido1",
                   organism = "mouse")
-
-# Show more bridge genes, lower similarity threshold for dotted lines
-PlotBridgeNetwork(seurat_obj, gene1 = "CD8A", gene2 = "CD8B",
-                  top_bridges = 20, sim_threshold = 0.08)
 }
 }

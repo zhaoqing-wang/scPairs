@@ -21,9 +21,15 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' result <- FindAllPairs(seurat_obj, top_n = 500)
-#' PlotPairHeatmap(result, top_n = 25)
+#' \donttest{
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+#' result <- FindAllPairs(obj, n_top_genes = 20, top_n = 10,
+#'   use_neighbourhood = FALSE, verbose = FALSE)
+#'
+#' PlotPairHeatmap(result, top_n = 5)
 #' }
 #'
 PlotPairHeatmap <- function(result,

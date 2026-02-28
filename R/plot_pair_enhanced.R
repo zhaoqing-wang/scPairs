@@ -26,8 +26,21 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' PlotPairSmoothed(seurat_obj, gene1 = "Adora2a", gene2 = "Ido1")
+#' \donttest{
+#' counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+#'   dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+#' obj <- Seurat::CreateSeuratObject(counts = counts)
+#' obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+#' obj[["umap"]] <- Seurat::CreateDimReducObject(
+#'   embeddings = matrix(rnorm(60), ncol = 2,
+#'     dimnames = list(colnames(obj), c("UMAP_1", "UMAP_2"))),
+#'   key = "UMAP_")
+#' obj[["pca"]] <- Seurat::CreateDimReducObject(
+#'   embeddings = matrix(rnorm(300), ncol = 10,
+#'     dimnames = list(colnames(obj), paste0("PC_", 1:10))),
+#'   key = "PC_")
+#'
+#' PlotPairSmoothed(obj, gene1 = "Gene1", gene2 = "Gene2")
 #' }
 #'
 PlotPairSmoothed <- function(object,

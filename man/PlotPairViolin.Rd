@@ -41,8 +41,14 @@ groups, enabling visual assessment of whether their expression patterns
 are coordinated across populations.
 }
 \examples{
-\dontrun{
-PlotPairViolin(seurat_obj, "CD8A", "CD8B", group_by = "seurat_clusters")
+\donttest{
+counts <- matrix(rpois(600, 5), nrow = 20, ncol = 30,
+  dimnames = list(paste0("Gene", 1:20), paste0("Cell", 1:30)))
+obj <- Seurat::CreateSeuratObject(counts = counts)
+obj <- Seurat::NormalizeData(obj, verbose = FALSE)
+obj$group <- factor(sample(c("A", "B"), 30, replace = TRUE))
+
+PlotPairViolin(obj, "Gene1", "Gene2", group_by = "group")
 }
 
 }
