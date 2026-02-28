@@ -99,6 +99,7 @@ The \code{mode} parameter controls which layers are scored:
 }
 }
 \examples{
+\donttest{
 # Assess the injected co-expressed pair GENE3 & GENE4.
 result <- AssessGenePair(scpairs_testdata,
                          gene1   = "GENE3",
@@ -106,6 +107,7 @@ result <- AssessGenePair(scpairs_testdata,
                          mode    = "expression",
                          verbose = FALSE)
 print(result)
+}
 }
 \seealso{
 \code{\link{FindAllPairs}} for genome-wide screening,

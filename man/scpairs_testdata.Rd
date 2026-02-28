@@ -9,9 +9,9 @@ A \code{\link[SeuratObject:Seurat-class]{Seurat}} object with:
 \describe{
 \item{Assay RNA}{
 \itemize{
-\item \strong{counts}: raw integer count matrix (20 genes × 100 cells).
+\item \strong{counts}: raw integer count matrix (20 genes x 100 cells).
 \item \strong{data}: log-normalised expression matrix.
-\item \strong{scale.data}: z-score–scaled matrix for all variable features.
+\item \strong{scale.data}: z-score-scaled matrix for all variable features.
 }
 }
 \item{Reductions}{
@@ -26,8 +26,8 @@ A \code{\link[SeuratObject:Seurat-class]{Seurat}} object with:
 labels (\code{"1"}, \code{"2"}, \code{"3"}).
 }
 }
-\item{Genes}{\code{GENE1}–\code{GENE20} (synthetic gene identifiers).}
-\item{Cells}{\code{CELL001}–\code{CELL100}.}
+\item{Genes}{\code{GENE1}--\code{GENE20} (synthetic gene identifiers).}
+\item{Cells}{\code{CELL001}--\code{CELL100}.}
 }
 }
 \source{
@@ -48,10 +48,10 @@ setup.
 \details{
 Two co-expression patterns are injected at data-generation time:
 \itemize{
-\item \strong{GENE3 & GENE4} — strongly correlated across all 100 cells
-(Pearson r ≈ 0.89 in the normalised data).  These are the recommended
+\item \strong{GENE3 & GENE4} -- strongly correlated across all 100 cells
+(Pearson r approximately 0.89 in the normalised data).  These are the recommended
 genes for discovery and assessment examples.
-\item \strong{GENE1 & GENE2} — moderately correlated within cluster 1
+\item \strong{GENE1 & GENE2} -- moderately correlated within cluster 1
 only (cluster-specific pattern).
 \item All remaining gene pairs are near-independent noise.
 }

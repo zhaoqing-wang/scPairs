@@ -301,7 +301,7 @@ https://github.com/zhaoqing-wang/scPairs
 
 ## 8. License
 
-[MIT](LICENSE.md)
+[MIT](https://github.com/zhaoqing-wang/scPairs/blob/main/LICENSE.md)
 
 ---
 

@@ -61,6 +61,7 @@
 #' @export
 #'
 #' @examples
+#' \donttest{
 #' # Assess the injected co-expressed pair GENE3 & GENE4.
 #' result <- AssessGenePair(scpairs_testdata,
 #'                          gene1   = "GENE3",
@@ -68,6 +69,7 @@
 #'                          mode    = "expression",
 #'                          verbose = FALSE)
 #' print(result)
+#' }
 AssessGenePair <- function(object,
                            gene1,
                            gene2,
