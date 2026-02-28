@@ -1,6 +1,6 @@
 # scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 
-[![GitHub Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=Version&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![R ≥ 4.1.0](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
+[![GitHub Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=Version&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![R ≥ 4.1.0](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing-Wang-green)](https://github.com/zhaoqing-wang)
 
 ## Overview
 
@@ -180,7 +180,7 @@ PlotPairSpatial(spatial_obj, gene1 = "EPCAM", gene2 = "KRT8")
 
 Metrics are rank-normalised to [0, 1] and combined via weighted summation:
 
-$$\text{synergy\_score} = \frac{\sum_i w_i \cdot \text{rank\_norm}(m_i)}{\sum_i w_i}$$
+$$\operatorname{synergy\_score} = \frac{\sum_{i} w_{i} \cdot \operatorname{rank\_norm}(m_{i})}{\sum_{i} w_{i}}$$
 
 ### 3.3 Unified Output Schema
 
@@ -190,9 +190,9 @@ All three workflows produce a `pairs` data.table with consistent columns: `gene1
 
 | With permutation p-values | Without p-values (score quantiles) |
 |---|---|
-| High: p_adj < 0.01 | High: ≥ 95th percentile |
-| Medium: p_adj < 0.05 | Medium: ≥ 80th percentile |
-| Low: p_adj < 0.10 | Low: ≥ 50th percentile |
+| High: `p_adj` < 0.01 | High: ≥ 95th percentile |
+| Medium: `p_adj` < 0.05 | Medium: ≥ 80th percentile |
+| Low: `p_adj` < 0.10 | Low: ≥ 50th percentile |
 
 ---
 
