@@ -9,3 +9,4 @@
 ^README\.Rmd$
 ^\.positai$
 ^data-raw$
+^\.claude$
