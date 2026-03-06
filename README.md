@@ -1,6 +1,6 @@
 # scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 
-[![GitHub Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=Version&color=blue)](https://github.com/zhaoqing-wang/scPairs/releases) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![R ≥ 4.1.0](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-green)](https://github.com/zhaoqing-wang)
+[![CRAN Package Version](https://img.shields.io/cran/v/scPairs?label=CRAN&color=blue)](https://cran.r-project.org/package=scPairs) [![CRAN License](https://img.shields.io/cran/l/scPairs?label=License&color=green)](https://cran.r-project.org/package=scPairs) [![R ≥ 4.1.0](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=green)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-blue)](https://github.com/zhaoqing-wang)
 
 ## Overview
 
@@ -40,24 +40,39 @@ The five evidence layers span cell-level co-expression (Pearson, Spearman, biwei
 
 ### 1.1 Installation
 
-```r
-# Install from GitHub
-if (!require("devtools")) install.packages("devtools")
-devtools::install_github("zhaoqing-wang/scPairs")
+**Option One: CRAN** [![CRAN Version](https://img.shields.io/cran/v/scPairs?label=CRAN&color=blue)](https://cran.r-project.org/package=scPairs)
 
-# Optional: prior knowledge integration (GO/KEGG annotation)
-if (!require("BiocManager")) install.packages("BiocManager")
-BiocManager::install(c("org.Mm.eg.db", "org.Hs.eg.db", "AnnotationDbi"))
+```r
+install.packages("scPairs")
+```
+
+**Option Two: GitHub** [![GitHub R package version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=green)](https://github.com/zhaoqing-wang/scPairs/releases)
+
+```r
+devtools::install_github("zhaoqing-wang/scPairs")
 ```
 
 <details>
-<summary><b>Install missing CRAN dependencies manually</b></summary>
+<summary><b>Dependencies & optional packages</b></summary>
+
+**Required:** Seurat (≥ 4.0), data.table, ggplot2, ggraph, ggrepel, igraph, Matrix, patchwork, tidygraph, tidyr
 
 ```r
 install.packages(c("data.table", "ggplot2", "ggraph", "ggrepel",
                    "igraph", "Matrix", "patchwork", "Seurat",
                    "tidygraph", "tidyr"))
-# Optional accelerators and extras
+```
+
+**Optional:** Prior knowledge integration (GO/KEGG annotation)
+
+```r
+if (!require("BiocManager")) install.packages("BiocManager")
+BiocManager::install(c("org.Mm.eg.db", "org.Hs.eg.db", "AnnotationDbi"))
+```
+
+**Optional accelerators and extras**
+
+```r
 install.packages(c("RANN", "ggExtra", "crayon"))
 ```
 
