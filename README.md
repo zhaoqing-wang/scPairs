@@ -1,6 +1,6 @@
 # scPairs: Identifying Synergistic Gene Pairs in Single-Cell and Spatial Transcriptomics
 
-[![CRAN Package Version](https://img.shields.io/cran/v/scPairs?label=CRAN&color=blue)](https://cran.r-project.org/package=scPairs) [![CRAN License](https://img.shields.io/cran/l/scPairs?label=License&color=green)](https://cran.r-project.org/package=scPairs) [![R ≥ 4.1.0](https://img.shields.io/badge/R-%3E%3D4.1.0-blue)](https://www.r-project.org/) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=green)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-blue)](https://github.com/zhaoqing-wang)
+[![CRAN Package Version](https://img.shields.io/cran/v/scPairs?label=CRAN&color=blue)](https://cran.r-project.org/package=scPairs) [![CRAN License](https://img.shields.io/cran/l/scPairs?label=License&color=green)](https://cran.r-project.org/package=scPairs) [![CRAN Downloads](https://cranlogs.r-pkg.org/badges/grand-total/scPairs)](https://cran.r-project.org/package=scPairs) [![GitHub Package Version](https://img.shields.io/github/r-package/v/zhaoqing-wang/scPairs?label=GitHub&color=green)](https://github.com/zhaoqing-wang/scPairs/releases) [![GitHub Maintainer](https://img.shields.io/badge/Maintainer-Zhaoqing_Wang-blue)](https://github.com/zhaoqing-wang)
 
 ## Overview
 
