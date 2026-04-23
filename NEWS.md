@@ -1,3 +1,11 @@
+## Version 0.1.9 (2026-04-23)
+
+*   **New Features**
+    *   Added a ASCII startup banner that displays when the package is attached.
+    
+*   **Improvements**
+    *   Optimized citation output formatting and reduced duplication in `.onAttach`.
+
 # scPairs 0.1.8 (2026-02-28)
 
 ## Summary
