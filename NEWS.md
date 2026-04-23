@@ -6,9 +6,9 @@
 *   **Improvements**
     *   Optimized citation output formatting and reduced duplication in `.onAttach`.
 
-# scPairs 0.1.8 (2026-02-28)
+## Version 0.1.8 (2026-02-28)
 
-## Summary
+### Summary
 
 First CRAN submission release. Addresses all reviewer feedback from the initial
 check, introduces a built-in test dataset, completes function documentation,
@@ -17,7 +17,7 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-## CRAN Compliance
+### CRAN Compliance
 
 -   **Added reference URL** to the `Description` field of `DESCRIPTION`
     (`<https://github.com/zhaoqing-wang/scPairs>`), as required.
@@ -54,7 +54,7 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-## Built-in Test Dataset
+### Built-in Test Dataset
 
 -   **New dataset `scpairs_testdata`** (`data/scpairs_testdata.rda`, 26 KB):
     a synthetic Seurat object (100 cells, 20 genes, 3 balanced clusters,
@@ -79,7 +79,7 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-## Documentation Improvements
+### Documentation Improvements
 
 -   **Completed documentation** for `PlotPairSummary()` (added `@examples`,
     improved `@return`) and `PlotPairSynergy()` (added `@examples` with
@@ -103,7 +103,7 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-## Package Structure
+### Package Structure
 
 -   `R/data.R` renamed to `R/scpairs_testdata.R`, following the convention
     of naming dataset documentation files after the dataset itself.
@@ -122,7 +122,7 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-## Test Suite
+### Test Suite
 
 -   All seven test files updated to use `scpairs_testdata` directly,
     removing per-test Seurat pipeline construction and improving
@@ -143,9 +143,9 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.7 (2026-02-23)
+## Version 0.1.7 (2026-02-23)
 
-## Bridge Gene Network Visualization
+### Bridge Gene Network Visualization
 
 -   **New exported function `PlotBridgeNetwork()`**: standalone bridge gene
     network for a focal gene pair. Nodes are positioned via MDS on Jaccard
@@ -167,9 +167,9 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.6 (2026-02-11)
+## Version 0.1.6 (2026-02-11)
 
-## Unified Computation Engine & API Consolidation
+### Unified Computation Engine & API Consolidation
 
 -   **Shared metric engine** (`compute_metrics.R`): all three discovery
     functions now share a single `.compute_pair_metrics()` backend,
@@ -190,9 +190,9 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.5 (2026-02-11)
+## Version 0.1.5 (2026-02-11)
 
-## Prior Knowledge Integration & Synergy-Aware Scoring
+### Prior Knowledge Integration & Synergy-Aware Scoring
 
 -   **Prior knowledge layer**: `prior_score` (GO/KEGG Jaccard co-annotation,
     weight 2.0) and `bridge_score` (pathway bridge genes, weight 1.8).
@@ -208,9 +208,9 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.4 (2026-02-08)
+## Version 0.1.4 (2026-02-08)
 
-## Robustness & Input Validation
+### Robustness & Input Validation
 
 -   `min_pct_expressed` filter added to exclude sparse genes from analysis.
 -   Comprehensive input validation with informative error messages.
@@ -219,9 +219,9 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.3 (2026-02-08)
+## Version 0.1.3 (2026-02-08)
 
-## Cross-Cell-Type Interaction Metric
+### Cross-Cell-Type Interaction Metric
 
 -   **New metric `cross_celltype_score`**: measures trans-cellular synergy
     between cell populations (weight 1.5).
@@ -230,27 +230,27 @@ established CRAN bioinformatics conventions.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.2 (2026-02-08)
+## Version 0.1.2 (2026-02-08)
 
-## Neighbourhood-Aware Metrics
+### Neighbourhood-Aware Metrics
 
 -   Three new metrics: `smoothed_cor`, `neighbourhood_score`, `cluster_cor`.
 -   Two new visualisations: `PlotPairSmoothed()`, `PlotPairSummary()`.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.1 (2026-02-08)
+## Version 0.1.1 (2026-02-08)
 
-## Performance Optimizations
+### Performance Optimizations
 
 -   5--20x speedups achieved through vectorisation of all core metric
     computations.
 
 ------------------------------------------------------------------------
 
-# scPairs 0.1.0 (2026-02-07)
+## Version 0.1.0 (2026-02-07)
 
-## Initial Release
+### Initial Release
 
 -   Three core workflows: `FindAllPairs()`, `FindGenePairs()`,
     `AssessGenePair()`.
