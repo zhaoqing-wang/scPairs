@@ -5,6 +5,7 @@
     
 *   **Improvements**
     *   Optimized citation output formatting and reduced duplication in `.onAttach`.
+    *   Fix and refine the format of `NEWS.md`.
 
 ## Version 0.1.8 (2026-02-28)
 
